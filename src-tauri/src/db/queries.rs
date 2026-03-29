@@ -7,13 +7,14 @@ use crate::db::Database;
 use crate::models::{Game, GetGamesParams};
 use anyhow::Result;
 use rusqlite::params_from_iter;
+use rusqlite::OptionalExtension;
 
 /// Converts a rusqlite `Row` into a `Game` struct.
 ///
 /// Reads columns by index in the order they appear in `SELECT g.* FROM games g`.
 /// Boolean fields (`currently_playing`, `is_favorite`) are stored as integers
 /// in SQLite and converted here.
-fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<Game> {
+pub(crate) fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<Game> {
     Ok(Game {
         id: row.get(0)?,
         title: row.get(1)?,
@@ -135,6 +136,26 @@ impl Database {
 
         Ok(games)
     }
+
+    /// Retrieves a single game by its database ID.
+    ///
+    /// Returns `None` if no game with the given ID exists.
+    pub fn get_game_by_id(&self, id: i64) -> Result<Option<Game>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let game = conn
+            .query_row(
+                "SELECT g.* FROM games g WHERE g.id = ?1",
+                rusqlite::params![id],
+                row_to_game,
+            )
+            .optional()?;
+
+        Ok(game)
+    }
 }
 
 #[cfg(test)]
@@ -249,5 +270,35 @@ mod tests {
         let params = GetGamesParams::default();
         let games = db.get_games(&params).unwrap();
         assert!(games.is_empty());
+    }
+
+    // ── get_game_by_id tests ───────────────────────────────────────────
+
+    #[test]
+    fn test_get_game_by_id_exists() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_rom("castlevania", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+        assert!(game_id > 0);
+
+        let game = db.get_game_by_id(game_id).unwrap();
+        assert!(game.is_some(), "Game should be found by its ID");
+
+        let game = game.unwrap();
+        assert_eq!(game.id, game_id);
+        assert_eq!(game.title, "castlevania");
+        assert_eq!(game.system_id, "nes");
+        assert_eq!(game.rom_path, "/roms/castlevania.nes");
+    }
+
+    #[test]
+    fn test_get_game_by_id_nonexistent() {
+        let db = Database::new_in_memory().unwrap();
+
+        let game = db.get_game_by_id(99999).unwrap();
+        assert!(
+            game.is_none(),
+            "Should return None for a nonexistent game ID"
+        );
     }
 }

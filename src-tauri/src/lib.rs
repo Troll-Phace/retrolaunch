@@ -16,6 +16,18 @@ pub fn run() {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             let db = Arc::new(db::Database::new(&app_data_dir)?);
+
+            // Clean up orphaned play sessions from previous app crashes.
+            match db.cleanup_orphaned_sessions() {
+                Ok(count) if count > 0 => {
+                    eprintln!("Cleaned up {} orphaned play session(s)", count);
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("Warning: failed to cleanup orphaned sessions: {}", e);
+                }
+            }
+
             app.manage(db);
             Ok(())
         })
@@ -26,6 +38,11 @@ pub fn run() {
             commands::scanner::get_games,
             commands::scanner::get_systems,
             commands::scanner::get_watched_directories,
+            commands::launcher::get_emulator_configs,
+            commands::launcher::set_emulator_config,
+            commands::launcher::auto_detect_emulators,
+            commands::launcher::launch_game,
+            commands::launcher::get_play_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
