@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" font-family="'SF Pro Display', 'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0f"/>
+      <stop offset="100%" style="stop-color:#12121f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+
+  <!-- Step indicator -->
+  <g transform="translate(525, 50)">
+    <circle cx="0" cy="0" r="5" fill="#6366f1" opacity="0.4"/>
+    <circle cx="25" cy="0" r="5" fill="#6366f1" opacity="0.4"/>
+    <circle cx="50" cy="0" r="5" fill="#6366f1" opacity="0.4"/>
+    <circle cx="75" cy="0" r="5" fill="#6366f1" opacity="0.4"/>
+    <circle cx="100" cy="0" r="5" fill="#6366f1"/>
+    <circle cx="125" cy="0" r="5" fill="#2a2a3a"/>
+    <text x="62" y="25" fill="#555" font-size="10" text-anchor="middle">Step 5 of 6</text>
+  </g>
+
+  <text x="40" y="52" fill="#6366f1" font-size="14">← Back</text>
+
+  <!-- Title -->
+  <text x="600" y="120" fill="#ffffff" font-size="32" font-weight="700" text-anchor="middle" letter-spacing="-1">Preferences</text>
+  <text x="600" y="150" fill="#8888aa" font-size="14" text-anchor="middle">Customize your experience. All of these can be changed later in Settings.</text>
+
+  <!-- Preference sections in a nice card layout -->
+  <!-- Section: Appearance -->
+  <text x="250" y="200" fill="#888" font-size="11" font-weight="600" letter-spacing="1.5">APPEARANCE</text>
+
+  <rect x="250" y="215" width="700" height="80" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+  <text x="280" y="245" fill="#fff" font-size="14" font-weight="600">Theme</text>
+  <text x="280" y="268" fill="#666" font-size="11">Choose your visual style</text>
+  <!-- Theme options -->
+  <g transform="translate(580, 228)">
+    <rect x="0" y="0" width="80" height="44" rx="8" fill="#6366f1" opacity="0.15" stroke="#6366f1" stroke-width="1.5"/>
+    <rect x="10" y="8" width="60" height="28" rx="4" fill="#0a0a0f"/>
+    <text x="40" y="38" fill="#6366f1" font-size="9" font-weight="600" text-anchor="middle">Dark</text>
+
+    <rect x="90" y="0" width="80" height="44" rx="8" fill="transparent" stroke="#2a2a3a" stroke-width="1"/>
+    <rect x="100" y="8" width="60" height="28" rx="4" fill="#e8e8e8"/>
+    <text x="130" y="38" fill="#555" font-size="9" text-anchor="middle">Light</text>
+
+    <rect x="180" y="0" width="80" height="44" rx="8" fill="transparent" stroke="#2a2a3a" stroke-width="1"/>
+    <rect x="190" y="8" width="60" height="28" rx="4" fill="#000000"/>
+    <text x="220" y="38" fill="#555" font-size="9" text-anchor="middle">OLED</text>
+
+    <rect x="270" y="0" width="80" height="44" rx="8" fill="transparent" stroke="#2a2a3a" stroke-width="1"/>
+    <rect x="280" y="8" width="60" height="28" rx="4" fill="#1a1008"/>
+    <text x="310" y="38" fill="#555" font-size="9" text-anchor="middle">Retro</text>
+  </g>
+
+  <!-- Dynamic colors toggle -->
+  <rect x="250" y="305" width="700" height="65" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+  <text x="280" y="332" fill="#fff" font-size="14" font-weight="600">Dynamic Color Palette</text>
+  <text x="280" y="352" fill="#666" font-size="11">Adapt UI accent colors based on game cover art</text>
+  <!-- Toggle switch — ON -->
+  <rect x="890" y="322" width="44" height="24" rx="12" fill="#6366f1"/>
+  <circle cx="922" cy="334" r="9" fill="#fff"/>
+
+  <!-- Section: Library -->
+  <text x="250" y="405" fill="#888" font-size="11" font-weight="600" letter-spacing="1.5">LIBRARY</text>
+
+  <rect x="250" y="420" width="700" height="65" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+  <text x="280" y="447" fill="#fff" font-size="14" font-weight="600">Default View</text>
+  <text x="280" y="467" fill="#666" font-size="11">How games are displayed in system views</text>
+  <!-- Segmented control -->
+  <g transform="translate(820, 434)">
+    <rect x="0" y="0" width="60" height="30" rx="6" fill="#6366f1" opacity="0.2" stroke="#6366f1" stroke-width="1"/>
+    <text x="30" y="20" fill="#6366f1" font-size="11" font-weight="600" text-anchor="middle">Grid</text>
+    <rect x="64" y="0" width="60" height="30" rx="6" fill="transparent" stroke="#2a2a3a" stroke-width="1"/>
+    <text x="94" y="20" fill="#555" font-size="11" text-anchor="middle">List</text>
+  </g>
+
+  <rect x="250" y="495" width="700" height="65" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+  <text x="280" y="522" fill="#fff" font-size="14" font-weight="600">Watch for New ROMs</text>
+  <text x="280" y="542" fill="#666" font-size="11">Automatically detect when new files are added to your ROM directories</text>
+  <!-- Toggle switch — ON -->
+  <rect x="890" y="512" width="44" height="24" rx="12" fill="#6366f1"/>
+  <circle cx="922" cy="524" r="9" fill="#fff"/>
+
+  <!-- Section: Storage -->
+  <text x="250" y="595" fill="#888" font-size="11" font-weight="600" letter-spacing="1.5">STORAGE</text>
+
+  <rect x="250" y="610" width="700" height="65" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+  <text x="280" y="637" fill="#fff" font-size="14" font-weight="600">Optimize Image Cache</text>
+  <text x="280" y="657" fill="#666" font-size="11">Downsample cover art images to save disk space (reduces quality slightly)</text>
+  <!-- Toggle switch — OFF -->
+  <rect x="890" y="627" width="44" height="24" rx="12" fill="#2a2a3a"/>
+  <circle cx="902" cy="639" r="9" fill="#555"/>
+
+  <!-- Continue button -->
+  <rect x="475" y="720" width="250" height="50" rx="25" fill="url(#accent)" filter="url(#glow)"/>
+  <text x="600" y="751" fill="#fff" font-size="15" font-weight="600" text-anchor="middle">Continue →</text>
+
+  <text x="1170" y="790" fill="#333" font-size="9" text-anchor="end">RETROLAUNCH — Onboarding 5/6: Preferences</text>
+</svg>

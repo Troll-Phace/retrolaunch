@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" font-family="'SF Pro Display', 'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0f"/>
+      <stop offset="100%" style="stop-color:#12121f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="logoGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigGlow">
+      <feGaussianBlur stdDeviation="40"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+
+  <!-- Ambient glow orbs -->
+  <circle cx="600" cy="300" r="200" fill="#6366f1" opacity="0.04" filter="url(#bigGlow)"/>
+  <circle cx="500" cy="350" r="120" fill="#8b5cf6" opacity="0.06" filter="url(#bigGlow)"/>
+
+  <!-- Step indicator -->
+  <g transform="translate(525, 50)">
+    <circle cx="0" cy="0" r="5" fill="#6366f1"/>
+    <circle cx="25" cy="0" r="5" fill="#2a2a3a"/>
+    <circle cx="50" cy="0" r="5" fill="#2a2a3a"/>
+    <circle cx="75" cy="0" r="5" fill="#2a2a3a"/>
+    <circle cx="100" cy="0" r="5" fill="#2a2a3a"/>
+    <circle cx="125" cy="0" r="5" fill="#2a2a3a"/>
+    <text x="62" y="25" fill="#555" font-size="10" text-anchor="middle">Step 1 of 6</text>
+  </g>
+
+  <!-- Logo area -->
+  <g transform="translate(600, 220)">
+    <!-- Stylized retro controller icon -->
+    <rect x="-50" y="-30" width="100" height="60" rx="16" fill="none" stroke="#6366f1" stroke-width="2" filter="url(#glow)"/>
+    <circle cx="-22" cy="0" r="6" fill="#6366f1" opacity="0.5"/>
+    <circle cx="22" cy="-8" r="4" fill="#8b5cf6" opacity="0.5"/>
+    <circle cx="30" cy="0" r="4" fill="#6366f1" opacity="0.5"/>
+    <circle cx="22" cy="8" r="4" fill="#a78bfa" opacity="0.5"/>
+    <circle cx="14" cy="0" r="4" fill="#7c3aed" opacity="0.5"/>
+    <!-- D-pad -->
+    <rect x="-26" y="-14" width="8" height="3" rx="1" fill="#6366f1" opacity="0.4"/>
+    <rect x="-23" y="-17" width="3" height="8" rx="1" fill="#6366f1" opacity="0.4"/>
+  </g>
+
+  <!-- Title -->
+  <text x="600" y="310" fill="#ffffff" font-size="42" font-weight="800" text-anchor="middle" letter-spacing="-1.5">Welcome to RetroLaunch</text>
+  <text x="600" y="345" fill="#8888aa" font-size="16" text-anchor="middle">Your entire retro game library, beautifully organized.</text>
+
+  <!-- Feature highlights -->
+  <g transform="translate(300, 400)">
+    <!-- Feature 1 -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="180" height="120" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+      <circle cx="90" cy="38" r="18" fill="#6366f115" stroke="#6366f1" stroke-width="1"/>
+      <text x="90" y="44" fill="#6366f1" font-size="16" text-anchor="middle">📂</text>
+      <text x="90" y="78" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">Auto-Scan</text>
+      <text x="90" y="95" fill="#666" font-size="10" text-anchor="middle">Finds &amp; organizes</text>
+      <text x="90" y="108" fill="#666" font-size="10" text-anchor="middle">your ROMs</text>
+    </g>
+
+    <!-- Feature 2 -->
+    <g transform="translate(210, 0)">
+      <rect x="0" y="0" width="180" height="120" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+      <circle cx="90" cy="38" r="18" fill="#6366f115" stroke="#6366f1" stroke-width="1"/>
+      <text x="90" y="44" fill="#6366f1" font-size="16" text-anchor="middle">🎮</text>
+      <text x="90" y="78" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">One-Click Play</text>
+      <text x="90" y="95" fill="#666" font-size="10" text-anchor="middle">Launch with the</text>
+      <text x="90" y="108" fill="#666" font-size="10" text-anchor="middle">right emulator</text>
+    </g>
+
+    <!-- Feature 3 -->
+    <g transform="translate(420, 0)">
+      <rect x="0" y="0" width="180" height="120" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+      <circle cx="90" cy="38" r="18" fill="#6366f115" stroke="#6366f1" stroke-width="1"/>
+      <text x="90" y="44" fill="#6366f1" font-size="16" text-anchor="middle">🖼️</text>
+      <text x="90" y="78" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">Rich Metadata</text>
+      <text x="90" y="95" fill="#666" font-size="10" text-anchor="middle">Cover art, details</text>
+      <text x="90" y="108" fill="#666" font-size="10" text-anchor="middle">auto-populated</text>
+    </g>
+  </g>
+
+  <!-- Get Started button -->
+  <rect x="475" y="580" width="250" height="56" rx="28" fill="url(#accent)" filter="url(#glow)"/>
+  <text x="600" y="614" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">Get Started</text>
+
+  <!-- Skip link -->
+  <text x="600" y="665" fill="#555" font-size="12" text-anchor="middle">Skip setup — I'll configure later</text>
+
+  <text x="1170" y="790" fill="#333" font-size="9" text-anchor="end">RETROLAUNCH — Onboarding 1/6: Welcome</text>
+</svg>

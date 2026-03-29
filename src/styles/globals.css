@@ -1,0 +1,152 @@
+@import "tailwindcss";
+@import "@fontsource/inter/latin.css";
+@import "@fontsource/jetbrains-mono/latin.css";
+
+/* Tailwind 4 CSS-first theme configuration */
+@theme {
+  /* Font families */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Border radii */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Colors mapped from CSS custom properties */
+  --color-void: var(--bg-void);
+  --color-deep: var(--bg-deep);
+  --color-surface: var(--surface);
+  --color-elevated: var(--surface-elevated);
+  --color-active: var(--surface-active);
+  --color-ghost: var(--border);
+  --color-ghost-lit: var(--border-active);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-dim: var(--text-dim);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+}
+
+/* ===== THEME: Dark (Default) ===== */
+:root,
+:root[data-theme="dark"] {
+  --bg-void: #0a0a0f;
+  --bg-deep: #12121f;
+  --surface: #141420;
+  --surface-elevated: #1a1a2e;
+  --surface-active: #1e1e30;
+  --border: #1e1e30;
+  --border-active: #2a2a3a;
+  --text-primary: #ffffff;
+  --text-secondary: #8888aa;
+  --text-dim: #555566;
+  --accent: #6366f1;
+  --accent-light: #8b5cf6;
+  --accent-soft: #a78bfa;
+  --success: #4ade80;
+  --warning: #f59e0b;
+  --error: #f43f5e;
+}
+
+/* ===== THEME: Light ===== */
+:root[data-theme="light"] {
+  --bg-void: #f5f5f7;
+  --bg-deep: #eeeef0;
+  --surface: #ffffff;
+  --surface-elevated: #f8f8fa;
+  --surface-active: #f0f0f2;
+  --border: #e0e0e5;
+  --border-active: #d0d0d8;
+  --text-primary: #111111;
+  --text-secondary: #666680;
+  --text-dim: #999999;
+  --accent: #4f46e5;
+  --accent-light: #7c3aed;
+  --accent-soft: #8b5cf6;
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+}
+
+/* ===== THEME: OLED ===== */
+:root[data-theme="oled"] {
+  --bg-void: #000000;
+  --bg-deep: #050505;
+  --surface: #0a0a0a;
+  --surface-elevated: #111111;
+  --surface-active: #1a1a1a;
+  --border: #1a1a1a;
+  --border-active: #222222;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --text-dim: #555555;
+  --accent: #6366f1;
+  --accent-light: #8b5cf6;
+  --accent-soft: #a78bfa;
+  --success: #4ade80;
+  --warning: #f59e0b;
+  --error: #f43f5e;
+}
+
+/* ===== THEME: Retro ===== */
+:root[data-theme="retro"] {
+  --bg-void: #1a1008;
+  --bg-deep: #201510;
+  --surface: #2a1a10;
+  --surface-elevated: #352215;
+  --surface-active: #3d2818;
+  --border: #3d2818;
+  --border-active: #4a3220;
+  --text-primary: #f5e6d0;
+  --text-secondary: #a08060;
+  --text-dim: #6d5540;
+  --accent: #f59e0b;
+  --accent-light: #fbbf24;
+  --accent-soft: #fcd34d;
+  --success: #4ade80;
+  --warning: #fb923c;
+  --error: #ef4444;
+}
+
+/* ===== System Theme Colors ===== */
+:root {
+  --system-nes: #e60012;
+  --system-snes: #7c3aed;
+  --system-genesis: #0066ff;
+  --system-n64: #00963f;
+  --system-gb: #8bac0f;
+  --system-gbc: #8bac0f;
+  --system-gba: #5b3c88;
+  --system-ps1: #003087;
+  --system-saturn: #ff6600;
+  --system-neogeo: #c8102e;
+  --system-atari2600: #8b6914;
+}
+
+/* ===== Base Styles ===== */
+body {
+  background-color: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

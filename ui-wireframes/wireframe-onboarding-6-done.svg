@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" font-family="'SF Pro Display', 'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0f"/>
+      <stop offset="100%" style="stop-color:#12121f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="successGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4ade80"/>
+      <stop offset="100%" style="stop-color:#22d3ee"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigGlow">
+      <feGaussianBlur stdDeviation="50"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+
+  <!-- Celebration ambient glow -->
+  <circle cx="600" cy="280" r="200" fill="#4ade80" opacity="0.03" filter="url(#bigGlow)"/>
+  <circle cx="550" cy="300" r="120" fill="#6366f1" opacity="0.04" filter="url(#bigGlow)"/>
+  <circle cx="650" cy="260" r="100" fill="#22d3ee" opacity="0.03" filter="url(#bigGlow)"/>
+
+  <!-- Step indicator — complete -->
+  <g transform="translate(525, 50)">
+    <circle cx="0" cy="0" r="5" fill="#4ade80" opacity="0.5"/>
+    <circle cx="25" cy="0" r="5" fill="#4ade80" opacity="0.5"/>
+    <circle cx="50" cy="0" r="5" fill="#4ade80" opacity="0.5"/>
+    <circle cx="75" cy="0" r="5" fill="#4ade80" opacity="0.5"/>
+    <circle cx="100" cy="0" r="5" fill="#4ade80" opacity="0.5"/>
+    <circle cx="125" cy="0" r="5" fill="#4ade80"/>
+    <text x="62" y="25" fill="#4ade80" font-size="10" text-anchor="middle">Complete!</text>
+  </g>
+
+  <!-- Big checkmark -->
+  <circle cx="600" cy="210" r="50" fill="#4ade8010" stroke="#4ade80" stroke-width="2" filter="url(#glow)"/>
+  <text x="600" y="225" fill="#4ade80" font-size="40" text-anchor="middle">✓</text>
+
+  <!-- Title -->
+  <text x="600" y="310" fill="#ffffff" font-size="38" font-weight="800" text-anchor="middle" letter-spacing="-1.5">You're All Set!</text>
+  <text x="600" y="345" fill="#8888aa" font-size="15" text-anchor="middle">Your library is ready to explore. Here's a summary of your setup.</text>
+
+  <!-- Summary stats in a row -->
+  <g transform="translate(175, 385)">
+    <rect x="0" y="0" width="160" height="95" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+    <text x="80" y="30" fill="#666" font-size="10" font-weight="600" text-anchor="middle" letter-spacing="1">GAMES</text>
+    <text x="80" y="62" fill="#4ade80" font-size="30" font-weight="800" text-anchor="middle">330</text>
+    <text x="80" y="80" fill="#555" font-size="10" text-anchor="middle">across 9 systems</text>
+
+    <rect x="175" y="0" width="160" height="95" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+    <text x="255" y="30" fill="#666" font-size="10" font-weight="600" text-anchor="middle" letter-spacing="1">EMULATORS</text>
+    <text x="255" y="62" fill="#6366f1" font-size="30" font-weight="800" text-anchor="middle">7</text>
+    <text x="255" y="80" fill="#555" font-size="10" text-anchor="middle">configured</text>
+
+    <rect x="350" y="0" width="160" height="95" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+    <text x="430" y="30" fill="#666" font-size="10" font-weight="600" text-anchor="middle" letter-spacing="1">METADATA</text>
+    <text x="430" y="62" fill="#8b5cf6" font-size="30" font-weight="800" text-anchor="middle">96%</text>
+    <text x="430" y="80" fill="#555" font-size="10" text-anchor="middle">matched</text>
+
+    <rect x="525" y="0" width="160" height="95" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+    <text x="605" y="30" fill="#666" font-size="10" font-weight="600" text-anchor="middle" letter-spacing="1">COVER ART</text>
+    <text x="605" y="62" fill="#c084fc" font-size="30" font-weight="800" text-anchor="middle">312</text>
+    <text x="605" y="80" fill="#555" font-size="10" text-anchor="middle">images cached</text>
+
+    <rect x="700" y="0" width="160" height="95" rx="12" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+    <text x="780" y="30" fill="#666" font-size="10" font-weight="600" text-anchor="middle" letter-spacing="1">CACHE SIZE</text>
+    <text x="780" y="62" fill="#888" font-size="30" font-weight="800" text-anchor="middle">148</text>
+    <text x="780" y="80" fill="#555" font-size="10" text-anchor="middle">MB on disk</text>
+  </g>
+
+  <!-- Quick tips -->
+  <rect x="250" y="515" width="700" height="100" rx="14" fill="#141420" stroke="#1e1e30" stroke-width="1"/>
+  <text x="280" y="545" fill="#888" font-size="11" font-weight="600" letter-spacing="1.5">QUICK TIPS</text>
+  <text x="280" y="570" fill="#aaa" font-size="12">
+    <tspan x="280" dy="0">• Drop new ROM files into your watched folders — they'll appear automatically</tspan>
+    <tspan x="280" dy="18">• Right-click any game to edit metadata, change emulator, or manage save states</tspan>
+    <tspan x="280" dy="18">• Configure more systems anytime in Settings → Emulator Config</tspan>
+  </text>
+
+  <!-- Launch button — hero CTA -->
+  <rect x="425" y="660" width="350" height="60" rx="30" fill="url(#accent)" filter="url(#glow)"/>
+  <text x="600" y="697" fill="#fff" font-size="18" font-weight="700" text-anchor="middle">Launch RetroLaunch  🎮</text>
+
+  <text x="1170" y="790" fill="#333" font-size="9" text-anchor="end">RETROLAUNCH — Onboarding 6/6: Setup Complete</text>
+</svg>
