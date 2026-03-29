@@ -1,1 +1,3 @@
-// Tauri IPC command handlers
+//! Tauri IPC command handlers.
+
+pub mod scanner;
