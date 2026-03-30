@@ -154,10 +154,11 @@ pub fn run_scan(
         }
     }
 
-    // 8. Update watched directories with scan timestamp.
+    // 8. Update watched directories with total game count and scan timestamp.
     for dir in &directories {
         let dir_str = dir.to_string_lossy().to_string();
-        let _ = db.update_watched_directory(&dir_str, new_games as i32);
+        let total_in_dir = db.count_games_in_directory(&dir_str).unwrap_or(0);
+        let _ = db.update_watched_directory(&dir_str, total_in_dir as i32);
     }
 
     // 9. Build and emit the completion event.

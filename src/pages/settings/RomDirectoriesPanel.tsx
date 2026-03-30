@@ -3,7 +3,7 @@
  * drag-and-drop support.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { Button } from "@/components/Button";
@@ -15,23 +15,6 @@ import {
 import { useTauriEvent } from "@/hooks/useTauriEvent";
 import type { WatchedDirectory } from "@/types";
 
-// Stagger container variant — only triggers on initial mount
-const staggerContainer = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.03 },
-  },
-};
-
-const staggerItem = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" } },
-};
-
-const reducedStaggerItem = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.15 } },
-};
 
 export interface RomDirectoriesPanelProps {
   directories: WatchedDirectory[];
@@ -129,14 +112,24 @@ function DirectoryRow({ directory, onRescan, onRemove }: DirectoryRowProps) {
 
   const handleRescan = useCallback(async () => {
     setRescanning(true);
-    await onRescan(directory.path);
-    setRescanning(false);
+    try {
+      await onRescan(directory.path);
+    } catch {
+      // handled by parent
+    } finally {
+      setRescanning(false);
+    }
   }, [directory.path, onRescan]);
 
   const handleRemove = useCallback(async () => {
     setRemoving(true);
-    await onRemove(directory.id);
-    setRemoving(false);
+    try {
+      await onRemove(directory.id);
+    } catch {
+      // handled by parent
+    } finally {
+      setRemoving(false);
+    }
   }, [directory.id, onRemove]);
 
   return (
@@ -198,7 +191,6 @@ export function RomDirectoriesPanel({
   onRefresh,
 }: RomDirectoriesPanelProps) {
   const shouldReduceMotion = useReducedMotion();
-  const hasAnimatedRef = useRef(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [adding, setAdding] = useState(false);
 
@@ -222,9 +214,10 @@ export function RomDirectoriesPanel({
     async (path: string) => {
       try {
         await scanDirectories([path]);
-        onRefresh();
       } catch (err: unknown) {
         console.error("Rescan failed:", err);
+      } finally {
+        onRefresh();
       }
     },
     [onRefresh]
@@ -274,24 +267,14 @@ export function RomDirectoriesPanel({
       </p>
 
       {/* Directory list */}
-      <motion.div
-        className="mt-6 space-y-3"
-        variants={!hasAnimatedRef.current ? staggerContainer : undefined}
-        initial={!hasAnimatedRef.current ? "hidden" : false}
-        animate="show"
-        onAnimationComplete={() => { hasAnimatedRef.current = true; }}
-      >
+      <div className="mt-6 space-y-3">
         {directories.map((dir) => (
-          <motion.div
+          <DirectoryRow
             key={dir.id}
-            variants={!hasAnimatedRef.current ? (shouldReduceMotion ? reducedStaggerItem : staggerItem) : undefined}
-          >
-            <DirectoryRow
-              directory={dir}
-              onRescan={handleRescan}
-              onRemove={handleRemove}
-            />
-          </motion.div>
+            directory={dir}
+            onRescan={handleRescan}
+            onRemove={handleRemove}
+          />
         ))}
 
         {directories.length === 0 && (
@@ -299,7 +282,7 @@ export function RomDirectoriesPanel({
             No directories added yet. Add a directory below to get started.
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Add directory area */}
       <div className="mt-6">

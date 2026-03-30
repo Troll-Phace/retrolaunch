@@ -311,6 +311,34 @@ impl Database {
         Ok(())
     }
 
+    /// Counts the total number of games whose `rom_path` falls under the given directory.
+    pub fn count_games_in_directory(&self, dir_path: &str) -> Result<i64> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let prefix = if dir_path.ends_with('/') || dir_path.ends_with('\\') {
+            dir_path.to_string()
+        } else {
+            format!("{}/", dir_path)
+        };
+
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM games WHERE rom_path LIKE ?1 ESCAPE '\\'",
+            rusqlite::params![format!(
+                "{}%",
+                prefix
+                    .replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_")
+            )],
+            |row| row.get(0),
+        )?;
+
+        Ok(count)
+    }
+
     // ── Emulator configuration methods ──────────────────────────────────
 
     /// Returns all emulator configurations from the database.
