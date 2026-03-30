@@ -96,6 +96,7 @@ pub struct ScanComplete {
 pub struct GetGamesParams {
     pub system_id: Option<String>,
     pub search: Option<String>,
+    pub genre: Option<String>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
     pub limit: Option<u32>,

@@ -87,6 +87,21 @@ impl Database {
             }
         }
 
+        // Genre filter
+        if let Some(ref genre) = params.genre {
+            if !genre.is_empty() {
+                conditions.push(format!("g.genre LIKE ?{} ESCAPE '\\'", param_index));
+                // Escape LIKE wildcards so %, _, and \ in genre values are matched
+                // literally rather than interpreted as pattern characters.
+                let escaped = genre
+                    .replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_");
+                bind_values.push(Box::new(format!("%{}%", escaped)));
+                param_index += 1;
+            }
+        }
+
         // Append WHERE clause if we have conditions
         if !conditions.is_empty() {
             sql.push_str(" WHERE ");
@@ -102,6 +117,7 @@ impl Database {
             "date_added" => "g.date_added",
             "last_played" => "g.last_played_at",
             "playtime" => "g.total_playtime_seconds",
+            "release_date" => "g.release_date",
             _ => "g.title",
         };
         let order_dir = match params.sort_order.as_deref() {

@@ -19,5 +19,11 @@ export default defineConfig(async () => ({
     host: host || false,
     hmr: host ? { protocol: "ws", host, port: 5174 } : undefined,
     watch: { ignored: ["**/src-tauri/**"] },
+    fs: {
+      deny: ["src-tauri/target"],
+    },
+  },
+  optimizeDeps: {
+    entries: ["src/main.tsx"],
   },
 }));

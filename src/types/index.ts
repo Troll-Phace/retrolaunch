@@ -96,6 +96,7 @@ export interface ScanComplete {
 export interface GetGamesParams {
   system_id?: string | null;
   search?: string | null;
+  genre?: string | null;
   sort_by?: string | null;
   sort_order?: string | null;
   limit?: number | null;
@@ -263,7 +264,7 @@ export interface ClearCacheParams {
 export type ThemeName = 'dark' | 'light' | 'oled' | 'retro';
 
 /** Sort fields supported by GetGamesParams. */
-export type GameSortField = 'title' | 'date_added' | 'last_played_at' | 'total_playtime_seconds' | 'release_date';
+export type GameSortField = 'title' | 'date_added' | 'last_played' | 'playtime' | 'release_date';
 
 /** Sort direction. */
 export type SortOrder = 'asc' | 'desc';

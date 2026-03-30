@@ -77,8 +77,8 @@ function isGameSortField(value: string): value is GameSortField {
   return (
     value === 'title' ||
     value === 'date_added' ||
-    value === 'last_played_at' ||
-    value === 'total_playtime_seconds' ||
+    value === 'last_played' ||
+    value === 'playtime' ||
     value === 'release_date'
   );
 }
