@@ -685,6 +685,40 @@ impl Database {
         Ok(value)
     }
 
+    /// Returns all preference key-value pairs.
+    pub fn get_preferences(&self) -> Result<std::collections::HashMap<String, String>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let mut stmt = conn.prepare("SELECT key, value FROM preferences")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let (key, value) = row?;
+            map.insert(key, value);
+        }
+        Ok(map)
+    }
+
+    /// Upserts a preference value.
+    pub fn set_preference(&self, key: &str, value: &str) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        conn.execute(
+            "INSERT OR REPLACE INTO preferences (key, value) VALUES (?1, ?2)",
+            rusqlite::params![key, value],
+        )?;
+        Ok(())
+    }
+
     /// Cleans up orphaned play sessions left from a previous crash.
     ///
     /// Closes all sessions that have no `ended_at` and resets every game whose

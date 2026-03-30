@@ -93,6 +93,8 @@ pub fn run() {
             commands::metadata::fetch_metadata,
             commands::metadata::get_cache_stats,
             commands::metadata::clear_cache,
+            commands::config::get_preferences,
+            commands::config::set_preference,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
