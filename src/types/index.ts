@@ -40,6 +40,21 @@ export interface ScannedRom {
   sha1: string | null;
 }
 
+/** A screenshot image associated with a game. */
+export interface Screenshot {
+  id: number;
+  game_id: number;
+  url: string;
+  local_path: string | null;
+  sort_order: number;
+}
+
+/** Response payload for the `get_game_detail` command. */
+export interface GameDetailResponse {
+  game: Game;
+  screenshots: Screenshot[];
+}
+
 /** Full game record matching the `games` SQLite table. */
 export interface Game {
   id: number;

@@ -4,7 +4,7 @@
 //! frontend via the Tauri invoke handler registered in `lib.rs`.
 
 use crate::db::Database;
-use crate::models::{Game, GetGamesParams, ScanComplete, System, WatchedDirectory};
+use crate::models::{Game, GameDetailResponse, GetGamesParams, ScanComplete, System, WatchedDirectory};
 use crate::scanner;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -74,4 +74,34 @@ pub async fn get_watched_directories(
     db: State<'_, Arc<Database>>,
 ) -> Result<Vec<WatchedDirectory>, String> {
     db.get_watched_directories().map_err(|e| e.to_string())
+}
+
+/// Returns a game and its associated screenshots for the detail view.
+///
+/// Combines `get_game_by_id` and `get_screenshots_for_game` into a single
+/// response to reduce IPC round-trips from the frontend.
+#[tauri::command]
+pub async fn get_game_detail(
+    game_id: i64,
+    db: State<'_, Arc<Database>>,
+) -> Result<GameDetailResponse, String> {
+    let game = db
+        .get_game_by_id(game_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Game with id {} not found", game_id))?;
+
+    let screenshots = db
+        .get_screenshots_for_game(game_id)
+        .map_err(|e| e.to_string())?;
+
+    Ok(GameDetailResponse { game, screenshots })
+}
+
+/// Toggles the favorite status of a game and returns the new value.
+#[tauri::command]
+pub async fn toggle_favorite(
+    game_id: i64,
+    db: State<'_, Arc<Database>>,
+) -> Result<bool, String> {
+    db.toggle_favorite(game_id).map_err(|e| e.to_string())
 }

@@ -214,6 +214,23 @@ pub struct CacheStats {
     pub total_size_bytes: u64,
 }
 
+/// A screenshot associated with a game (matches `screenshots` table).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Screenshot {
+    pub id: i64,
+    pub game_id: i64,
+    pub url: String,
+    pub local_path: Option<String>,
+    pub sort_order: i32,
+}
+
+/// Combined response for the game detail view, bundling a game with its screenshots.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameDetailResponse {
+    pub game: Game,
+    pub screenshots: Vec<Screenshot>,
+}
+
 /// Parameters for clearing parts of the image cache.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClearCacheParams {

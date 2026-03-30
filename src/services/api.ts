@@ -15,6 +15,7 @@ import type {
   EmulatorConfig,
   FetchMetadataParams,
   Game,
+  GameDetailResponse,
   GetGamesParams,
   PlayStats,
   ScanComplete,
@@ -137,4 +138,28 @@ export async function getPreferences(): Promise<Record<string, string>> {
 /** Creates or updates a preference value. */
 export async function setPreference(key: string, value: string): Promise<void> {
   return invoke<void>('set_preference', { key, value });
+}
+
+// ---------------------------------------------------------------------------
+// Game detail commands
+// ---------------------------------------------------------------------------
+
+/** Returns full game details including screenshots for the detail view. */
+export async function getGameDetail(gameId: number): Promise<GameDetailResponse> {
+  return invoke<GameDetailResponse>('get_game_detail', { game_id: gameId });
+}
+
+/** Toggles the favorite state of a game. Returns the new favorite state. */
+export async function toggleFavorite(gameId: number): Promise<boolean> {
+  return invoke<boolean>('toggle_favorite', { game_id: gameId });
+}
+
+// ---------------------------------------------------------------------------
+// File system helpers
+// ---------------------------------------------------------------------------
+
+/** Reveals the given path in the platform's file manager (Finder / Explorer). */
+export async function revealInFileManager(path: string): Promise<void> {
+  const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+  return revealItemInDir(path);
 }

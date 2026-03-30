@@ -85,6 +85,8 @@ pub fn run() {
             commands::scanner::get_games,
             commands::scanner::get_systems,
             commands::scanner::get_watched_directories,
+            commands::scanner::get_game_detail,
+            commands::scanner::toggle_favorite,
             commands::launcher::get_emulator_configs,
             commands::launcher::set_emulator_config,
             commands::launcher::auto_detect_emulators,

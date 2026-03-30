@@ -163,9 +163,15 @@ export function HeroBanner({ game, playStats, onPlay }: HeroBannerProps) {
       {/* Content */}
       <div className="relative z-10 flex gap-6 p-6">
         {/* Cover art — click to view game detail */}
-        <div
+        <motion.div
           className="shrink-0 cursor-pointer overflow-hidden rounded-xl transition-opacity hover:opacity-90"
           style={{ width: 160, height: 160 }}
+          layoutId={`game-cover-${game.id}`}
+          transition={
+            shouldReduceMotion
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 300, damping: 30 }
+          }
           role="button"
           tabIndex={0}
           aria-label={`View details for ${game.title}`}
@@ -211,7 +217,7 @@ export function HeroBanner({ game, playStats, onPlay }: HeroBannerProps) {
               </svg>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Info column */}
         <div className="flex min-w-0 flex-col gap-3">

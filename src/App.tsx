@@ -1,5 +1,5 @@
 import { Routes, Route, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import { Home } from "@/pages/Home";
 import { SystemGrid } from "@/pages/SystemGrid";
 import { GameDetail } from "@/pages/GameDetail";
@@ -8,6 +8,7 @@ import { Onboarding } from "@/pages/Onboarding";
 import { useHydrateStore } from "@/store";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
+import { ToastContainer } from "@/components/Toast";
 
 function AppShell() {
   const location = useLocation();
@@ -61,18 +62,24 @@ function AppShell() {
 
       {/* Main Content */}
       <main className="pt-16">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: transitionDuration, ease: "easeOut" }}
+            style={{ position: "relative" }}
           >
-            <Outlet />
+            <LayoutGroup>
+              <Outlet />
+            </LayoutGroup>
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Toast notifications — outside AnimatePresence so they persist across routes */}
+      <ToastContainer />
     </div>
   );
 }

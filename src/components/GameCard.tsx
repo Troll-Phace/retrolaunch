@@ -57,7 +57,15 @@ export function GameCard({ game, onClick, className = "" }: GameCardProps) {
       aria-label={`${game.title} — ${game.system_id}`}
     >
       {/* Cover art area */}
-      <div className="relative aspect-square w-full overflow-hidden">
+      <motion.div
+        className="relative aspect-square w-full overflow-hidden"
+        layoutId={`game-cover-${game.id}`}
+        transition={
+          shouldReduceMotion
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 300, damping: 30 }
+        }
+      >
         {game.cover_path ? (
           <BlurhashPlaceholder
             blurhash={game.blurhash ?? ""}
@@ -125,7 +133,7 @@ export function GameCard({ game, onClick, className = "" }: GameCardProps) {
             />
           </svg>
         </div>
-      </div>
+      </motion.div>
 
       {/* Text info area */}
       <div className="p-3">

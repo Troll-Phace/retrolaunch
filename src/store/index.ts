@@ -9,6 +9,7 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import type { GameSortField, SortOrder, ThemeName } from '@/types';
+import type { Toast } from '@/components/Toast';
 import { getPreferences, setPreference } from '@/services/api';
 
 // ---------------------------------------------------------------------------
@@ -46,6 +47,11 @@ interface AppState {
   // Dynamic color (set by game detail / hero banner)
   dynamicColorPalette: DynamicColorPalette | null;
   setDynamicColorPalette: (palette: DynamicColorPalette | null) => void;
+
+  // Toast notifications
+  toasts: Toast[];
+  addToast: (toast: Omit<Toast, 'id'>) => void;
+  removeToast: (id: string) => void;
 
   // Hydration
   hydrated: boolean;
@@ -143,6 +149,23 @@ export const useAppStore = create<AppState>()((set, get) => ({
   setDynamicColorPalette: (palette) => {
     set({ dynamicColorPalette: palette });
     applyDynamicColors(palette);
+  },
+
+  // -- Toast notifications ---------------------------------------------------
+  toasts: [],
+  addToast: (toast) => {
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : String(Date.now());
+    const MAX_TOASTS = 5;
+    set((state) => {
+      const next = [...state.toasts, { ...toast, id }];
+      // Keep only the newest MAX_TOASTS entries
+      return { toasts: next.length > MAX_TOASTS ? next.slice(-MAX_TOASTS) : next };
+    });
+  },
+  removeToast: (id) => {
+    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
   },
 
   // -- Hydration ------------------------------------------------------------

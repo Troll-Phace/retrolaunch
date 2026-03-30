@@ -620,6 +620,60 @@ impl Database {
         Ok(())
     }
 
+    /// Returns all screenshots for a game, ordered by `sort_order` ascending.
+    pub fn get_screenshots_for_game(&self, game_id: i64) -> Result<Vec<crate::models::Screenshot>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, game_id, url, local_path, sort_order \
+             FROM screenshots WHERE game_id = ?1 ORDER BY sort_order ASC",
+        )?;
+
+        let screenshots = stmt
+            .query_map(rusqlite::params![game_id], |row| {
+                Ok(crate::models::Screenshot {
+                    id: row.get(0)?,
+                    game_id: row.get(1)?,
+                    url: row.get(2)?,
+                    local_path: row.get(3)?,
+                    sort_order: row.get(4)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(screenshots)
+    }
+
+    /// Toggles the `is_favorite` flag on a game and returns the new value.
+    ///
+    /// Flips `is_favorite` from 0 to 1 or from 1 to 0, and updates `updated_at`.
+    /// Returns the new boolean state of `is_favorite`.
+    pub fn toggle_favorite(&self, game_id: i64) -> Result<bool> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        conn.execute(
+            "UPDATE games SET is_favorite = CASE WHEN is_favorite = 0 THEN 1 ELSE 0 END, \
+             updated_at = datetime('now') WHERE id = ?1",
+            rusqlite::params![game_id],
+        )?;
+
+        let new_value: bool = conn
+            .query_row(
+                "SELECT is_favorite FROM games WHERE id = ?1",
+                rusqlite::params![game_id],
+                |row| row.get(0),
+            )
+            .with_context(|| format!("Game with id {} not found after toggle", game_id))?;
+
+        Ok(new_value)
+    }
+
     /// Returns games that have no metadata source set (not yet fetched or unmatched).
     ///
     /// Optionally limits the number of results.
@@ -1479,6 +1533,83 @@ mod tests {
         assert!(
             !after.iter().any(|g| g.id == game_id),
             "Game should NOT appear in without-metadata list after marking unmatched"
+        );
+    }
+
+    // ── Screenshot query tests ────────────────────────────────────────
+
+    #[test]
+    fn test_get_screenshots_for_game() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("screenshot_game", "snes");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        let entries = vec![
+            ("https://example.com/ss2.jpg".to_string(), Some("/cache/ss/2.webp".to_string()), 1),
+            ("https://example.com/ss1.jpg".to_string(), Some("/cache/ss/1.webp".to_string()), 0),
+            ("https://example.com/ss3.jpg".to_string(), None, 2),
+        ];
+        db.insert_screenshots(game_id, &entries).unwrap();
+
+        let screenshots = db.get_screenshots_for_game(game_id).unwrap();
+        assert_eq!(screenshots.len(), 3);
+
+        // Verify they are returned sorted by sort_order ascending.
+        assert_eq!(screenshots[0].sort_order, 0);
+        assert_eq!(screenshots[1].sort_order, 1);
+        assert_eq!(screenshots[2].sort_order, 2);
+
+        assert_eq!(screenshots[0].url, "https://example.com/ss1.jpg");
+        assert_eq!(screenshots[0].local_path.as_deref(), Some("/cache/ss/1.webp"));
+        assert!(screenshots[2].local_path.is_none());
+    }
+
+    #[test]
+    fn test_get_screenshots_for_game_none() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("no_ss_game", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        let screenshots = db.get_screenshots_for_game(game_id).unwrap();
+        assert!(screenshots.is_empty(), "Should return empty vec when no screenshots exist");
+    }
+
+    // ── Toggle favorite tests ─────────────────────────────────────────
+
+    #[test]
+    fn test_toggle_favorite() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("fav_game", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        // Default is_favorite should be false.
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert!(!game.is_favorite, "is_favorite should default to false");
+
+        // First toggle: false -> true.
+        let new_val = db.toggle_favorite(game_id).unwrap();
+        assert!(new_val, "First toggle should set is_favorite to true");
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert!(game.is_favorite);
+
+        // Second toggle: true -> false.
+        let new_val = db.toggle_favorite(game_id).unwrap();
+        assert!(!new_val, "Second toggle should set is_favorite back to false");
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert!(!game.is_favorite);
+    }
+
+    #[test]
+    fn test_toggle_favorite_nonexistent_game() {
+        let db = Database::new_in_memory().unwrap();
+
+        // Toggling a nonexistent game should return an error.
+        let result = db.toggle_favorite(99999);
+        assert!(
+            result.is_err(),
+            "toggle_favorite on a nonexistent game should return an error"
         );
     }
 }
