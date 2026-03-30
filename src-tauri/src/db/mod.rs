@@ -5,7 +5,7 @@
 
 pub mod queries;
 
-use crate::models::{EmulatorConfig, GameEmulatorOverride, PlaySession, PlayStats, ScannedRom, System, WatchedDirectory};
+use crate::models::{EmulatorConfig, Game, GameEmulatorOverride, GameMetadata, PlaySession, PlayStats, ScannedRom, System, WatchedDirectory};
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 use rusqlite::OptionalExtension;
@@ -515,6 +515,174 @@ impl Database {
             session_count,
             sessions,
         })
+    }
+
+    // ── Metadata methods ────────────────────────────────────────────────
+
+    /// Updates a game's metadata columns from an API source.
+    ///
+    /// Sets all metadata fields, the cover path, blurhash, metadata source,
+    /// and timestamps. Also refreshes the FTS5 index for the updated game.
+    pub fn update_game_metadata(
+        &self,
+        game_id: i64,
+        metadata: &GameMetadata,
+        cover_path: Option<&str>,
+        blurhash: Option<&str>,
+    ) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        // For an external-content FTS5 table, we must remove the old entry
+        // using the OLD content values BEFORE updating the content table.
+        // Read the current indexed values so the FTS delete command can match.
+        type FtsRow = (String, Option<String>, Option<String>, Option<String>, Option<String>);
+        let old_values: Option<FtsRow> = conn
+            .query_row(
+                "SELECT title, developer, publisher, description, genre FROM games WHERE id = ?1",
+                rusqlite::params![game_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .optional()?;
+
+        if let Some((old_title, old_dev, old_pub, old_desc, old_genre)) = old_values {
+            // Remove old FTS entry using the special 'delete' command with old values.
+            conn.execute(
+                "INSERT INTO games_fts(games_fts, rowid, title, developer, publisher, description, genre) \
+                 VALUES('delete', ?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![game_id, old_title, old_dev, old_pub, old_desc, old_genre],
+            )?;
+        }
+
+        conn.execute(
+            "UPDATE games SET \
+                 igdb_id = ?1, \
+                 developer = ?2, \
+                 publisher = ?3, \
+                 release_date = ?4, \
+                 genre = ?5, \
+                 description = ?6, \
+                 cover_path = ?7, \
+                 blurhash = ?8, \
+                 metadata_source = ?9, \
+                 metadata_fetched_at = datetime('now'), \
+                 updated_at = datetime('now') \
+             WHERE id = ?10",
+            rusqlite::params![
+                metadata.igdb_id,
+                metadata.developer,
+                metadata.publisher,
+                metadata.release_date,
+                metadata.genre,
+                metadata.description,
+                cover_path,
+                blurhash,
+                metadata.source,
+                game_id,
+            ],
+        )?;
+
+        // Re-insert into FTS with the new values.
+        conn.execute(
+            "INSERT INTO games_fts(rowid, title, developer, publisher, description, genre) \
+             SELECT id, title, developer, publisher, description, genre \
+             FROM games WHERE id = ?1",
+            rusqlite::params![game_id],
+        )?;
+
+        Ok(())
+    }
+
+    /// Inserts screenshot records for a game.
+    ///
+    /// Each entry is a tuple of `(url, optional_local_path, sort_order)`.
+    pub fn insert_screenshots(
+        &self,
+        game_id: i64,
+        entries: &[(String, Option<String>, i32)],
+    ) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let mut stmt = conn.prepare(
+            "INSERT INTO screenshots (game_id, url, local_path, sort_order) \
+             VALUES (?1, ?2, ?3, ?4)",
+        )?;
+
+        for (url, local_path, sort_order) in entries {
+            stmt.execute(rusqlite::params![game_id, url, local_path, sort_order])?;
+        }
+
+        Ok(())
+    }
+
+    /// Returns games that have no metadata source set (not yet fetched or unmatched).
+    ///
+    /// Optionally limits the number of results.
+    pub fn get_games_without_metadata(&self, limit: Option<u32>) -> Result<Vec<Game>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let sql = if let Some(limit) = limit {
+            format!(
+                "SELECT g.* FROM games g WHERE g.metadata_source IS NULL LIMIT {}",
+                limit
+            )
+        } else {
+            "SELECT g.* FROM games g WHERE g.metadata_source IS NULL".to_string()
+        };
+
+        let mut stmt = conn.prepare(&sql)?;
+        let games = stmt
+            .query_map([], crate::db::queries::row_to_game)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(games)
+    }
+
+    /// Marks a game as unmatched (no metadata found from any source).
+    pub fn mark_game_unmatched(&self, game_id: i64) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        conn.execute(
+            "UPDATE games SET \
+                 metadata_source = 'unmatched', \
+                 metadata_fetched_at = datetime('now'), \
+                 updated_at = datetime('now') \
+             WHERE id = ?1",
+            rusqlite::params![game_id],
+        )?;
+
+        Ok(())
+    }
+
+    /// Reads a single preference value by key.
+    ///
+    /// Returns `None` if the key is not present in the `preferences` table.
+    pub fn get_preference(&self, key: &str) -> Result<Option<String>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let value = conn
+            .query_row(
+                "SELECT value FROM preferences WHERE key = ?1",
+                rusqlite::params![key],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        Ok(value)
     }
 
     /// Cleans up orphaned play sessions left from a previous crash.
@@ -1032,6 +1200,251 @@ mod tests {
         assert_eq!(
             game.total_playtime_seconds, duration1,
             "Playtime should not be double-counted"
+        );
+    }
+
+    // ── Metadata database method tests ────────────────────────────────
+
+    #[test]
+    fn test_update_game_metadata() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("metroid", "snes");
+        let game_id = db.insert_game(&rom).unwrap();
+        assert!(game_id > 0);
+
+        let metadata = GameMetadata {
+            igdb_id: Some(5678),
+            developer: Some("Nintendo R&D1".to_string()),
+            publisher: Some("Nintendo".to_string()),
+            release_date: Some("1994-03-19".to_string()),
+            genre: Some("Action, Adventure".to_string()),
+            description: Some("Explore planet Zebes.".to_string()),
+            cover_url: Some("https://example.com/cover.jpg".to_string()),
+            screenshot_urls: vec![],
+            source: "igdb".to_string(),
+        };
+
+        db.update_game_metadata(game_id, &metadata, Some("/cache/covers/1.webp"), Some("LEHV6n"))
+            .unwrap();
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(game.igdb_id, Some(5678));
+        assert_eq!(game.developer.as_deref(), Some("Nintendo R&D1"));
+        assert_eq!(game.publisher.as_deref(), Some("Nintendo"));
+        assert_eq!(game.release_date.as_deref(), Some("1994-03-19"));
+        assert_eq!(game.genre.as_deref(), Some("Action, Adventure"));
+        assert_eq!(game.description.as_deref(), Some("Explore planet Zebes."));
+        assert_eq!(game.cover_path.as_deref(), Some("/cache/covers/1.webp"));
+        assert_eq!(game.blurhash.as_deref(), Some("LEHV6n"));
+        assert_eq!(game.metadata_source.as_deref(), Some("igdb"));
+        assert!(
+            game.metadata_fetched_at.is_some(),
+            "metadata_fetched_at should be set"
+        );
+    }
+
+    #[test]
+    fn test_update_game_metadata_with_none_cover() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("zelda", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        let metadata = GameMetadata {
+            igdb_id: None,
+            developer: Some("Capcom".to_string()),
+            publisher: None,
+            release_date: None,
+            genre: None,
+            description: None,
+            cover_url: None,
+            screenshot_urls: vec![],
+            source: "screenscraper".to_string(),
+        };
+
+        db.update_game_metadata(game_id, &metadata, None, None)
+            .unwrap();
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert!(game.cover_path.is_none());
+        assert!(game.blurhash.is_none());
+        assert_eq!(game.developer.as_deref(), Some("Capcom"));
+        assert_eq!(game.metadata_source.as_deref(), Some("screenscraper"));
+    }
+
+    #[test]
+    fn test_update_game_metadata_refreshes_fts_index() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("some_game", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        let metadata = GameMetadata {
+            igdb_id: None,
+            developer: Some("Rare".to_string()),
+            publisher: Some("Nintendo".to_string()),
+            release_date: None,
+            genre: Some("Platformer".to_string()),
+            description: Some("A fun platformer game about a bear.".to_string()),
+            cover_url: None,
+            screenshot_urls: vec![],
+            source: "igdb".to_string(),
+        };
+
+        db.update_game_metadata(game_id, &metadata, None, None)
+            .unwrap();
+
+        // Search by developer name -- should find the game via FTS.
+        let params = crate::models::GetGamesParams {
+            search: Some("Rare".to_string()),
+            ..Default::default()
+        };
+        let results = db.get_games(&params).unwrap();
+        assert_eq!(
+            results.len(),
+            1,
+            "FTS search should find the game by developer name"
+        );
+        assert_eq!(results[0].id, game_id);
+    }
+
+    #[test]
+    fn test_insert_screenshots() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("ss_game", "gba");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        let entries = vec![
+            (
+                "https://example.com/ss1.jpg".to_string(),
+                Some("/cache/screenshots/1/1.webp".to_string()),
+                0,
+            ),
+            (
+                "https://example.com/ss2.jpg".to_string(),
+                Some("/cache/screenshots/1/2.webp".to_string()),
+                1,
+            ),
+            (
+                "https://example.com/ss3.jpg".to_string(),
+                None,
+                2,
+            ),
+        ];
+
+        db.insert_screenshots(game_id, &entries).unwrap();
+
+        // Verify screenshots are in the database by querying directly.
+        let conn = db.conn.lock().unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM screenshots WHERE game_id = ?1",
+                rusqlite::params![game_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 3, "All three screenshots should be inserted");
+    }
+
+    #[test]
+    fn test_get_games_without_metadata() {
+        let db = Database::new_in_memory().unwrap();
+
+        // Insert three games, none with metadata.
+        for name in &["game_a", "game_b", "game_c"] {
+            let rom = make_test_rom(name, "nes");
+            db.insert_game(&rom).unwrap();
+        }
+
+        let without_md = db.get_games_without_metadata(None).unwrap();
+        assert_eq!(
+            without_md.len(),
+            3,
+            "All three games should have no metadata"
+        );
+
+        // Now give one game metadata.
+        let metadata = GameMetadata {
+            igdb_id: None,
+            developer: None,
+            publisher: None,
+            release_date: None,
+            genre: None,
+            description: None,
+            cover_url: None,
+            screenshot_urls: vec![],
+            source: "igdb".to_string(),
+        };
+        db.update_game_metadata(without_md[0].id, &metadata, None, None)
+            .unwrap();
+
+        let without_md = db.get_games_without_metadata(None).unwrap();
+        assert_eq!(
+            without_md.len(),
+            2,
+            "Only two games should remain without metadata"
+        );
+    }
+
+    #[test]
+    fn test_get_games_without_metadata_with_limit() {
+        let db = Database::new_in_memory().unwrap();
+
+        for name in &["limit_a", "limit_b", "limit_c", "limit_d"] {
+            let rom = make_test_rom(name, "snes");
+            db.insert_game(&rom).unwrap();
+        }
+
+        let limited = db.get_games_without_metadata(Some(2)).unwrap();
+        assert_eq!(
+            limited.len(),
+            2,
+            "Should return at most 2 games when limit is 2"
+        );
+    }
+
+    #[test]
+    fn test_mark_game_unmatched() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("unmatched_game", "genesis");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        // Before marking, metadata_source should be None.
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert!(game.metadata_source.is_none());
+
+        db.mark_game_unmatched(game_id).unwrap();
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(
+            game.metadata_source.as_deref(),
+            Some("unmatched"),
+            "metadata_source should be 'unmatched'"
+        );
+        assert!(
+            game.metadata_fetched_at.is_some(),
+            "metadata_fetched_at should be set"
+        );
+    }
+
+    #[test]
+    fn test_mark_game_unmatched_excludes_from_without_metadata() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("will_be_unmatched", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        // Should appear in without_metadata list.
+        let before = db.get_games_without_metadata(None).unwrap();
+        assert!(
+            before.iter().any(|g| g.id == game_id),
+            "Game should appear in without-metadata list before marking"
+        );
+
+        db.mark_game_unmatched(game_id).unwrap();
+
+        // Should no longer appear (metadata_source is set to 'unmatched').
+        let after = db.get_games_without_metadata(None).unwrap();
+        assert!(
+            !after.iter().any(|g| g.id == game_id),
+            "Game should NOT appear in without-metadata list after marking unmatched"
         );
     }
 }

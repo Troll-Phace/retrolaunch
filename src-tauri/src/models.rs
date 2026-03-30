@@ -193,3 +193,50 @@ pub struct GameSessionEnded {
     pub game_id: i64,
     pub duration_seconds: i64,
 }
+
+/// Event payload emitted during metadata fetching to report progress.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataProgress {
+    pub fetched: u32,
+    pub total: u32,
+    pub current_game: String,
+    pub source: Option<String>,
+}
+
+/// Statistics about the image cache on disk.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheStats {
+    pub covers_count: u32,
+    pub covers_size_bytes: u64,
+    pub screenshots_count: u32,
+    pub screenshots_size_bytes: u64,
+    pub total_size_bytes: u64,
+}
+
+/// Parameters for clearing parts of the image cache.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClearCacheParams {
+    pub covers: Option<bool>,
+    pub screenshots: Option<bool>,
+    pub all: Option<bool>,
+}
+
+/// Parameters for the `fetch_metadata` command.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FetchMetadataParams {
+    pub game_ids: Vec<i64>,
+}
+
+/// Internal metadata retrieved from an API source (IGDB or ScreenScraper).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameMetadata {
+    pub igdb_id: Option<i64>,
+    pub developer: Option<String>,
+    pub publisher: Option<String>,
+    pub release_date: Option<String>,
+    pub genre: Option<String>,
+    pub description: Option<String>,
+    pub cover_url: Option<String>,
+    pub screenshot_urls: Vec<String>,
+    pub source: String,
+}
