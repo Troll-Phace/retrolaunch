@@ -3,12 +3,16 @@ import { decode } from "blurhash";
 
 export interface BlurhashPlaceholderProps {
   blurhash: string;
-  width: number;
-  height: number;
+  /** Explicit width. Omit (or pass undefined) to inherit from className/parent. */
+  width?: number;
+  /** Explicit height. Omit (or pass undefined) to inherit from className/parent. */
+  height?: number;
   /** When provided, crossfade to real image once loaded. */
   src?: string;
   alt?: string;
   className?: string;
+  /** Use "cover" to crop-fill or "contain" to fit without cropping. */
+  objectFit?: "cover" | "contain";
 }
 
 const DECODE_WIDTH = 32;
@@ -21,6 +25,7 @@ export function BlurhashPlaceholder({
   src,
   alt = "",
   className = "",
+  objectFit = "cover",
 }: BlurhashPlaceholderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -52,23 +57,9 @@ export function BlurhashPlaceholder({
     }
   }, [blurhash]);
 
-  // Load real image in background when src is provided
+  // Reset loaded state when src changes
   useEffect(() => {
-    if (!src) {
-      setImageLoaded(false);
-      return;
-    }
-
     setImageLoaded(false);
-    const img = new Image();
-    img.onload = () => setImageLoaded(true);
-    img.onerror = () => setImageLoaded(false);
-    img.src = src;
-
-    return () => {
-      img.onload = null;
-      img.onerror = null;
-    };
   }, [src]);
 
   // Fallback: empty/invalid blurhash
@@ -76,7 +67,7 @@ export function BlurhashPlaceholder({
     return (
       <div
         className={`bg-elevated ${className}`}
-        style={{ width, height }}
+        style={{ width: width ?? undefined, height: height ?? undefined }}
         role="img"
         aria-label={alt}
       />
@@ -86,7 +77,7 @@ export function BlurhashPlaceholder({
   return (
     <div
       className={`relative overflow-hidden ${className}`}
-      style={{ width, height }}
+      style={{ width: width ?? undefined, height: height ?? undefined }}
       role="img"
       aria-label={alt}
     >
@@ -102,9 +93,13 @@ export function BlurhashPlaceholder({
         <img
           src={src}
           alt={alt}
-          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300"
+          className={`absolute inset-0 h-full w-full transition-opacity duration-300 ${
+            objectFit === "contain" ? "object-contain" : "object-cover"
+          }`}
           style={{ opacity: imageLoaded ? 1 : 0 }}
           loading="lazy"
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageLoaded(false)}
         />
       )}
     </div>

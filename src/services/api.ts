@@ -89,12 +89,12 @@ export async function autoDetectEmulators(): Promise<DetectedEmulator[]> {
  * the emulator exits.
  */
 export async function launchGame(gameId: number): Promise<void> {
-  return invoke<void>('launch_game', { game_id: gameId });
+  return invoke<void>('launch_game', { gameId });
 }
 
 /** Returns playtime stats for a specific game. */
 export async function getPlayStats(gameId: number): Promise<PlayStats> {
-  return invoke<PlayStats>('get_play_stats', { game_id: gameId });
+  return invoke<PlayStats>('get_play_stats', { gameId });
 }
 
 // ---------------------------------------------------------------------------
@@ -146,12 +146,12 @@ export async function setPreference(key: string, value: string): Promise<void> {
 
 /** Returns full game details including screenshots for the detail view. */
 export async function getGameDetail(gameId: number): Promise<GameDetailResponse> {
-  return invoke<GameDetailResponse>('get_game_detail', { game_id: gameId });
+  return invoke<GameDetailResponse>('get_game_detail', { gameId });
 }
 
 /** Toggles the favorite state of a game. Returns the new favorite state. */
 export async function toggleFavorite(gameId: number): Promise<boolean> {
-  return invoke<boolean>('toggle_favorite', { game_id: gameId });
+  return invoke<boolean>('toggle_favorite', { gameId });
 }
 
 // ---------------------------------------------------------------------------

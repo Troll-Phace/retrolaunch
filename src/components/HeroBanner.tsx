@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Game, PlayStats } from "@/types";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -186,9 +187,7 @@ export function HeroBanner({ game, playStats, onPlay }: HeroBannerProps) {
           {game.cover_path ? (
             <BlurhashPlaceholder
               blurhash={game.blurhash ?? ""}
-              width={160}
-              height={160}
-              src={game.cover_path}
+              src={convertFileSrc(game.cover_path)}
               alt={game.title}
               className="h-full w-full"
             />

@@ -578,7 +578,7 @@ export function GameDetail() {
           <motion.div
             layoutId={`game-cover-${game.id}`}
             transition={coverLayoutTransition}
-            className="w-[300px] h-[300px] rounded-xl overflow-hidden"
+            className="w-[300px] aspect-[3/4] rounded-xl overflow-hidden"
             style={{
               boxShadow: dynamicAccent
                 ? `0 20px 60px -10px ${dynamicAccent}40`
@@ -590,7 +590,7 @@ export function GameDetail() {
               <BlurhashPlaceholder
                 blurhash={game.blurhash}
                 width={300}
-                height={300}
+                height={400}
                 src={coverSrc}
                 alt={`${game.title} cover art`}
                 className="rounded-xl"

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Game } from "@/types";
 import { Badge } from "@/components/Badge";
 import { BlurhashPlaceholder } from "@/components/BlurhashPlaceholder";
@@ -58,7 +59,7 @@ export function GameCard({ game, onClick, className = "" }: GameCardProps) {
     >
       {/* Cover art area */}
       <motion.div
-        className="relative aspect-square w-full overflow-hidden"
+        className="relative aspect-[3/4] w-full overflow-hidden"
         layoutId={`game-cover-${game.id}`}
         transition={
           shouldReduceMotion
@@ -69,9 +70,7 @@ export function GameCard({ game, onClick, className = "" }: GameCardProps) {
         {game.cover_path ? (
           <BlurhashPlaceholder
             blurhash={game.blurhash ?? ""}
-            width={300}
-            height={300}
-            src={game.cover_path}
+            src={convertFileSrc(game.cover_path)}
             alt={game.title}
             className="h-full w-full"
           />
