@@ -216,12 +216,50 @@ impl Database {
         Ok(dir)
     }
 
-    /// Removes a watched directory by its database ID.
+    /// Removes a watched directory by its database ID and deletes all games
+    /// whose ROM path falls under that directory.
     pub fn remove_watched_directory(&self, id: i64) -> Result<()> {
         let conn = self
             .conn
             .lock()
             .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        // Look up the directory path before deletion so we can cascade to games.
+        let dir_path: Option<String> = conn
+            .query_row(
+                "SELECT path FROM watched_directories WHERE id = ?1",
+                rusqlite::params![id],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(path) = dir_path {
+            // Ensure the path ends with a separator so we only match children,
+            // not sibling directories that share a prefix.
+            let prefix = if path.ends_with('/') || path.ends_with('\\') {
+                path
+            } else {
+                format!("{}/", path)
+            };
+
+            // Delete all games whose rom_path starts with this directory.
+            conn.execute(
+                "DELETE FROM games WHERE rom_path LIKE ?1 ESCAPE '\\'",
+                rusqlite::params![format!(
+                    "{}%",
+                    prefix
+                        .replace('\\', "\\\\")
+                        .replace('%', "\\%")
+                        .replace('_', "\\_")
+                )],
+            )?;
+
+            // Also clean up screenshots for deleted games (orphaned rows).
+            conn.execute(
+                "DELETE FROM screenshots WHERE game_id NOT IN (SELECT id FROM games)",
+                [],
+            )?;
+        }
 
         conn.execute(
             "DELETE FROM watched_directories WHERE id = ?1",

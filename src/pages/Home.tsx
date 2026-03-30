@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import type { Game, PlayStats, System } from "@/types";
 import { getGames, getPlayStats, getSystems, launchGame } from "@/services/api";
 import { useDynamicColor } from "@/hooks/useDynamicColor";
@@ -10,6 +10,7 @@ import { SystemCard } from "@/components/SystemCard";
 
 export function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [games, setGames] = useState<Game[]>([]);
   const [systems, setSystems] = useState<System[]>([]);
@@ -17,35 +18,40 @@ export function Home() {
   const [heroStats, setHeroStats] = useState<PlayStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [allGames, allSystems] = await Promise.all([
-          getGames({}),
-          getSystems(),
-        ]);
-        setGames(allGames);
-        setSystems(allSystems);
+  const loadData = useCallback(async () => {
+    try {
+      const [allGames, allSystems] = await Promise.all([
+        getGames({}),
+        getSystems(),
+      ]);
+      setGames(allGames);
+      setSystems(allSystems);
 
-        // Find the most recently played game and fetch its stats
-        const played = allGames
-          .filter((g) => g.last_played_at !== null)
-          .sort((a, b) => b.last_played_at!.localeCompare(a.last_played_at!));
+      // Find the most recently played game and fetch its stats
+      const played = allGames
+        .filter((g) => g.last_played_at !== null)
+        .sort((a, b) => b.last_played_at!.localeCompare(a.last_played_at!));
 
-        const mostRecent = played[0];
-        if (mostRecent) {
-          setHeroGameId(mostRecent.id);
-          const stats = await getPlayStats(mostRecent.id);
-          setHeroStats(stats);
-        }
-      } catch (err) {
-        console.error("Failed to load home data:", err);
-      } finally {
-        setLoading(false);
+      const mostRecent = played[0];
+      if (mostRecent) {
+        setHeroGameId(mostRecent.id);
+        const stats = await getPlayStats(mostRecent.id);
+        setHeroStats(stats);
+      } else {
+        setHeroGameId(null);
+        setHeroStats(null);
       }
+    } catch (err) {
+      console.error("Failed to load home data:", err);
+    } finally {
+      setLoading(false);
     }
-    loadData();
   }, []);
+
+  // Re-fetch data whenever the user navigates (back) to the home page
+  useEffect(() => {
+    loadData();
+  }, [loadData, location.key]);
 
   // Look up hero game from the authoritative ID set during data load
   const heroGame = useMemo(() => {
