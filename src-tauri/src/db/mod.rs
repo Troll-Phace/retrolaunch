@@ -992,8 +992,14 @@ impl Database {
             .context("Failed to delete watched_directories")?;
         conn.execute("DELETE FROM emulator_configs", [])
             .context("Failed to delete emulator_configs")?;
-        conn.execute("DELETE FROM preferences", [])
-            .context("Failed to delete preferences")?;
+        // Delete preferences but preserve API credentials.
+        conn.execute(
+            "DELETE FROM preferences WHERE key NOT IN \
+             ('igdb_client_id', 'igdb_client_secret', \
+              'ss_dev_id', 'ss_dev_password', 'ss_username', 'ss_password')",
+            [],
+        )
+        .context("Failed to delete preferences")?;
 
         // Rebuild FTS5 index from the now-empty games table.
         conn.execute_batch("INSERT INTO games_fts(games_fts) VALUES('rebuild');")
