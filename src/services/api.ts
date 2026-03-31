@@ -21,6 +21,7 @@ import type {
   ScanComplete,
   System,
   WatchedDirectory,
+  WatcherStatus,
 } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -172,6 +173,25 @@ export async function cleanupOrphanedGames(): Promise<number> {
 export async function revealInFileManager(path: string): Promise<void> {
   const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
   return revealItemInDir(path);
+}
+
+// ---------------------------------------------------------------------------
+// Watcher commands
+// ---------------------------------------------------------------------------
+
+/** Starts the file system watcher for all enabled watched directories. */
+export async function startWatcher(): Promise<void> {
+  return invoke<void>('start_watcher');
+}
+
+/** Stops the file system watcher. */
+export async function stopWatcher(): Promise<void> {
+  return invoke<void>('stop_watcher');
+}
+
+/** Returns the current status of the file system watcher. */
+export async function getWatcherStatus(): Promise<WatcherStatus> {
+  return invoke<WatcherStatus>('get_watcher_status');
 }
 
 // ---------------------------------------------------------------------------

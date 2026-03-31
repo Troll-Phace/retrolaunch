@@ -131,6 +131,12 @@ export interface WatchedDirectory {
   enabled: boolean;
 }
 
+/** Status of the file system watcher. */
+export interface WatcherStatus {
+  active: boolean;
+  watched_paths: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Hashing
 // ---------------------------------------------------------------------------

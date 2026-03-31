@@ -113,6 +113,13 @@ pub struct WatchedDirectory {
     pub enabled: bool,
 }
 
+/// Status of the file system watcher.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatcherStatus {
+    pub active: bool,
+    pub watched_paths: Vec<String>,
+}
+
 /// Result of hashing a ROM file's contents.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RomHashes {

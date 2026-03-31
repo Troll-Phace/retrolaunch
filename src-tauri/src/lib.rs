@@ -4,6 +4,7 @@ pub mod launcher;
 pub mod metadata;
 pub mod models;
 pub mod scanner;
+pub mod watcher;
 
 use std::sync::Arc;
 use tauri::Manager;
@@ -76,7 +77,20 @@ pub fn run() {
             };
             app.manage(Arc::new(metadata_clients));
 
-            app.manage(db);
+            app.manage(db.clone());
+
+            // Initialize and auto-start the file system watcher.
+            let fs_watcher = Arc::new(watcher::FsWatcher::new());
+            app.manage(fs_watcher.clone());
+
+            let watcher_db = db;
+            let watcher_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = fs_watcher.start(watcher_app, watcher_db).await {
+                    eprintln!("Warning: failed to start file watcher: {}", e);
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -101,6 +115,9 @@ pub fn run() {
             commands::config::get_preferences,
             commands::config::set_preference,
             commands::config::reset_to_fresh,
+            commands::watcher::start_watcher,
+            commands::watcher::stop_watcher,
+            commands::watcher::get_watcher_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

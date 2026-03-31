@@ -6,6 +6,7 @@
 use crate::db::Database;
 use crate::models::{Game, GameDetailResponse, GetGamesParams, ScanComplete, System, WatchedDirectory};
 use crate::scanner;
+use crate::watcher::FsWatcher;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
@@ -33,24 +34,49 @@ pub async fn scan_directories(
 /// Adds a directory to the watched directories list.
 ///
 /// Uses `INSERT OR IGNORE` internally, so adding the same path twice
-/// returns the existing record without error.
+/// returns the existing record without error. Also adds the path to the
+/// running file system watcher if it is enabled.
 #[tauri::command]
 pub async fn add_watched_directory(
     path: String,
     db: State<'_, Arc<Database>>,
+    watcher: State<'_, Arc<FsWatcher>>,
 ) -> Result<WatchedDirectory, String> {
-    db.add_watched_directory(&path)
-        .map_err(|e| e.to_string())
+    let dir = db
+        .add_watched_directory(&path)
+        .map_err(|e| e.to_string())?;
+
+    // Add to the running watcher if the directory is enabled.
+    if dir.enabled {
+        let _ = watcher.add_path(PathBuf::from(&path));
+    }
+
+    Ok(dir)
 }
 
 /// Removes a watched directory by its database ID.
+///
+/// Also removes the path from the running file system watcher.
 #[tauri::command]
 pub async fn remove_watched_directory(
     id: i64,
     db: State<'_, Arc<Database>>,
+    watcher: State<'_, Arc<FsWatcher>>,
 ) -> Result<(), String> {
+    // Look up the directory path before deleting so we can remove it from the watcher.
+    let dir_path = db
+        .get_watched_directory_path_by_id(id)
+        .map_err(|e| e.to_string())?;
+
     db.remove_watched_directory(id)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // Remove from the running watcher.
+    if let Some(path) = dir_path {
+        let _ = watcher.remove_path(PathBuf::from(&path));
+    }
+
+    Ok(())
 }
 
 /// Queries games from the database with optional filtering, sorting, and pagination.

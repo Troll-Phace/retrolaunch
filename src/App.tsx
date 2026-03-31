@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import { Home } from "@/pages/Home";
@@ -9,6 +10,8 @@ import { useHydrateStore, useAppStore } from "@/store";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { ToastContainer } from "@/components/Toast";
+import { onNewRomDetected } from "@/services/events";
+import { fetchMetadata } from "@/services/api";
 
 function AppShell() {
   const location = useLocation();
@@ -16,6 +19,30 @@ function AppShell() {
   const shouldReduceMotion = useReducedMotion();
 
   const transitionDuration = shouldReduceMotion ? 0 : 0.25;
+
+  // Listen for new ROM detections from the file system watcher
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    onNewRomDetected((game) => {
+      // Show toast
+      useAppStore.getState().addToast({
+        type: "success",
+        message: `New game detected: ${game.title}`,
+      });
+
+      // Trigger background metadata fetch
+      fetchMetadata({ game_ids: [game.id], force: false }).catch((err) =>
+        console.error("Failed to fetch metadata for new game:", err)
+      );
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      unlisten?.();
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-void">

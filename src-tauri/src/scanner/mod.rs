@@ -8,10 +8,10 @@ pub mod hasher;
 pub mod walker;
 
 use crate::db::Database;
-use crate::models::{ScanComplete, ScanProgress, ScannedRom};
+use crate::models::{Game, ScanComplete, ScanProgress, ScannedRom};
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
@@ -171,4 +171,91 @@ pub fn run_scan(
     let _ = app.emit("scan-complete", &complete);
 
     Ok(complete)
+}
+
+/// Processes a single file through the ROM identification pipeline.
+///
+/// Returns `Some(Game)` if the file was identified as a new ROM and inserted,
+/// or `None` if the file is not a ROM, already exists, or cannot be processed.
+/// This is used by the file system watcher to process newly detected files.
+pub fn process_single_file(
+    file_path: &Path,
+    db: &Arc<Database>,
+) -> Result<Option<Game>> {
+    // 1. Load systems from DB.
+    let systems = db.get_all_systems()?;
+
+    // 2. Check extension against known ROM extensions.
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .ok_or_else(|| anyhow::anyhow!("No file extension"))?;
+
+    let known_extensions: HashSet<String> = systems
+        .iter()
+        .flat_map(|s| s.extensions.iter().cloned())
+        .collect();
+
+    if !known_extensions.contains(&ext) {
+        return Ok(None);
+    }
+
+    // 3. Detect system via extension + header sniffing.
+    let candidates = detector::detect_system_by_extension(&ext, &systems);
+    let system_id = match candidates.len() {
+        0 => return Ok(None),
+        1 => candidates[0].clone(),
+        _ => match detector::detect_system_by_header(file_path, &candidates)? {
+            Some(id) => id,
+            None => return Ok(None),
+        },
+    };
+
+    // 4. Check for duplicates by path.
+    let path_str = file_path.to_string_lossy().to_string();
+    if db.game_exists_by_path(&path_str)? {
+        return Ok(None);
+    }
+
+    // 5. Read file metadata.
+    let metadata = std::fs::metadata(file_path)?;
+    let file_size = metadata.len();
+    let last_modified = metadata
+        .modified()
+        .map(|t| {
+            let duration = t
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
+            duration.as_secs().to_string()
+        })
+        .unwrap_or_else(|_| "0".to_string());
+
+    // 6. Hash ROM contents (strips copier headers where applicable).
+    let hashes = hasher::hash_rom(file_path, &system_id)?;
+
+    // 7. Build ScannedRom and insert into the database.
+    let file_name = file_path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+
+    let rom = ScannedRom {
+        file_path: file_path.to_path_buf(),
+        file_name,
+        file_size,
+        last_modified,
+        system_id,
+        crc32: hashes.crc32,
+        sha1: hashes.sha1,
+    };
+
+    let id = db.insert_game(&rom)?;
+    if id == 0 {
+        return Ok(None); // Duplicate caught by INSERT OR IGNORE
+    }
+
+    // 8. Return the full Game record.
+    db.get_game_by_path(&path_str)
 }

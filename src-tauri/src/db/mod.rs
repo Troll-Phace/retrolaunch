@@ -216,6 +216,24 @@ impl Database {
         Ok(dir)
     }
 
+    /// Returns the path of a watched directory by its database ID, if it exists.
+    pub fn get_watched_directory_path_by_id(&self, id: i64) -> Result<Option<String>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let path = conn
+            .query_row(
+                "SELECT path FROM watched_directories WHERE id = ?1",
+                rusqlite::params![id],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        Ok(path)
+    }
+
     /// Removes a watched directory by its database ID and deletes all games
     /// whose ROM path falls under that directory.
     pub fn remove_watched_directory(&self, id: i64) -> Result<()> {

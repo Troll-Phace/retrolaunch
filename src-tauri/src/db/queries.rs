@@ -153,6 +153,26 @@ impl Database {
         Ok(games)
     }
 
+    /// Retrieves a single game by its ROM file path.
+    ///
+    /// Returns `None` if no game with the given path exists.
+    pub fn get_game_by_path(&self, rom_path: &str) -> Result<Option<Game>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let game = conn
+            .query_row(
+                "SELECT g.* FROM games g WHERE g.rom_path = ?1",
+                rusqlite::params![rom_path],
+                row_to_game,
+            )
+            .optional()?;
+
+        Ok(game)
+    }
+
     /// Retrieves a single game by its database ID.
     ///
     /// Returns `None` if no game with the given ID exists.

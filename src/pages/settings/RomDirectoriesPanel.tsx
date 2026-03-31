@@ -149,6 +149,15 @@ function DirectoryRow({ directory, onRescan, onRemove }: DirectoryRowProps) {
             </span>
             <span aria-hidden="true">&middot;</span>
             <span>Scanned {timeAgo(directory.last_scanned_at)}</span>
+            {directory.enabled && (
+              <>
+                <span aria-hidden="true">&middot;</span>
+                <span className="inline-flex items-center gap-1 text-xs text-success">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                  Watching
+                </span>
+              </>
+            )}
           </div>
         </div>
 
