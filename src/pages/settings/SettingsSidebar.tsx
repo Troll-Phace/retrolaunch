@@ -1,5 +1,5 @@
 /**
- * Settings sidebar navigation with 6 section items.
+ * Settings sidebar navigation with 7 section items.
  * Uses Framer Motion layoutId for a smooth sliding active indicator.
  */
 
@@ -9,6 +9,7 @@ export type SettingsSection =
   | "emulators"
   | "directories"
   | "metadata"
+  | "nointro"
   | "appearance"
   | "controls"
   | "about";
@@ -70,6 +71,24 @@ function CloudIcon() {
   );
 }
 
+function DatabaseIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <ellipse cx="12" cy="5" rx="9" ry="3" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
 function PaletteIcon() {
   return (
     <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -115,6 +134,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "emulators", label: "Emulators", icon: <GamepadIcon /> },
   { id: "directories", label: "ROM Directories", icon: <FolderIcon /> },
   { id: "metadata", label: "Metadata & APIs", icon: <CloudIcon /> },
+  { id: "nointro", label: "ROM Verification", icon: <DatabaseIcon /> },
   { id: "appearance", label: "Appearance", icon: <PaletteIcon /> },
   { id: "controls", label: "Controls", icon: <KeyboardIcon /> },
   { id: "about", label: "About", icon: <InfoIcon /> },

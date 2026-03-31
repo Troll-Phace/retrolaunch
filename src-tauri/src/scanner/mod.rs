@@ -5,6 +5,7 @@
 
 pub mod detector;
 pub mod hasher;
+pub mod nointro;
 pub mod walker;
 
 use crate::db::Database;
@@ -35,6 +36,7 @@ pub fn run_scan(
     app: &AppHandle,
     directories: Vec<PathBuf>,
     db: &Arc<Database>,
+    nointro: &nointro::NoIntroDatabase,
 ) -> Result<ScanComplete> {
     let start_time = Instant::now();
 
@@ -128,7 +130,31 @@ pub fn run_scan(
         match db.insert_game(&rom) {
             Ok(id) if id > 0 => {
                 new_games += 1;
-                *systems_found.entry(system_id).or_insert(0) += 1;
+                *systems_found.entry(system_id.clone()).or_insert(0) += 1;
+
+                // Look up No-Intro canonical name by CRC32.
+                // First try the headerless hash, then try full-file hash
+                // for headered No-Intro DATs (NES/SNES).
+                let nointro_match = nointro
+                    .lookup(&system_id, &rom.crc32)
+                    .or_else(|| {
+                        if system_id == "nes" || system_id == "snes" {
+                            hasher::hash_rom_full(&path)
+                                .ok()
+                                .and_then(|full| nointro.lookup(&system_id, &full.crc32))
+                        } else {
+                            None
+                        }
+                    });
+                if let Some(entry) = nointro_match {
+                    if let Err(e) = db.update_nointro_match_by_path(
+                        &rom.file_path.to_string_lossy(),
+                        &entry.name,
+                        entry.region.as_deref(),
+                    ) {
+                        eprintln!("Warning: failed to set No-Intro name: {}", e);
+                    }
+                }
             }
             Ok(_) => {} // Duplicate path, already in DB
             Err(err) => {
@@ -181,6 +207,7 @@ pub fn run_scan(
 pub fn process_single_file(
     file_path: &Path,
     db: &Arc<Database>,
+    nointro: &nointro::NoIntroDatabase,
 ) -> Result<Option<Game>> {
     // 1. Load systems from DB.
     let systems = db.get_all_systems()?;
@@ -256,6 +283,28 @@ pub fn process_single_file(
         return Ok(None); // Duplicate caught by INSERT OR IGNORE
     }
 
-    // 8. Return the full Game record.
+    // 8. Look up No-Intro canonical name by CRC32.
+    // First try the headerless hash, then try full-file hash
+    // for headered No-Intro DATs (NES/SNES).
+    let nointro_match = nointro
+        .lookup(&rom.system_id, &rom.crc32)
+        .or_else(|| {
+            if rom.system_id == "nes" || rom.system_id == "snes" {
+                hasher::hash_rom_full(file_path)
+                    .ok()
+                    .and_then(|full| nointro.lookup(&rom.system_id, &full.crc32))
+            } else {
+                None
+            }
+        });
+    if let Some(entry) = nointro_match {
+        let _ = db.update_nointro_match_by_path(
+            &file_path.to_string_lossy(),
+            &entry.name,
+            entry.region.as_deref(),
+        );
+    }
+
+    // 9. Return the full Game record.
     db.get_game_by_path(&path_str)
 }

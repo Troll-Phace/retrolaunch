@@ -24,6 +24,28 @@ use self::cache::ImageCache;
 use self::igdb::IgdbClient;
 use self::screenscraper::ScreenScraperClient;
 
+/// Strips No-Intro parenthetical tags (region, revision, language, etc.) from a game name.
+///
+/// Examples:
+/// - `"Contra (USA)"` -> `"Contra"`
+/// - `"Super Mario Bros. 3 (USA) (Rev A)"` -> `"Super Mario Bros. 3"`
+/// - `"Final Fantasy III (Japan)"` -> `"Final Fantasy III"`
+fn strip_nointro_tags(name: &str) -> String {
+    let mut result = String::with_capacity(name.len());
+    let mut depth: u32 = 0;
+    for ch in name.chars() {
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth = depth.saturating_sub(1);
+            }
+            _ if depth == 0 => result.push(ch),
+            _ => {}
+        }
+    }
+    result.trim().to_string()
+}
+
 /// Errors that can occur during metadata operations.
 #[derive(Debug, thiserror::Error)]
 pub enum MetadataError {
@@ -109,13 +131,17 @@ pub async fn fetch_metadata_batch(
             continue;
         }
 
-        let search_name = game.nointro_name.as_deref().unwrap_or(&game.title);
+        let search_name = game
+            .nointro_name
+            .as_deref()
+            .map(strip_nointro_tags)
+            .unwrap_or_else(|| game.title.clone());
 
         // 2. Try IGDB.
         let mut metadata: Option<GameMetadata> = None;
 
         if clients.igdb.is_configured() {
-            match clients.igdb.search_game(search_name, Some(&game.system_id)).await {
+            match clients.igdb.search_game(&search_name, Some(&game.system_id)).await {
                 Ok(Some(md)) => metadata = Some(md),
                 Ok(None) => { /* miss — fall through */ }
                 Err(e) => {
@@ -145,7 +171,7 @@ pub async fn fetch_metadata_batch(
         if metadata.is_none() && clients.screenscraper.is_configured() {
             match clients
                 .screenscraper
-                .search_by_name(search_name, &game.system_id)
+                .search_by_name(&search_name, &game.system_id)
                 .await
             {
                 Ok(Some(md)) => metadata = Some(md),
@@ -341,5 +367,43 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
         let err = MetadataError::IoError(io_err);
         assert!(err.to_string().contains("file missing"));
+    }
+
+    #[test]
+    fn test_strip_nointro_tags_single_region() {
+        assert_eq!(strip_nointro_tags("Contra (USA)"), "Contra");
+    }
+
+    #[test]
+    fn test_strip_nointro_tags_multiple_tags() {
+        assert_eq!(
+            strip_nointro_tags("Super Mario Bros. 3 (USA) (Rev A)"),
+            "Super Mario Bros. 3"
+        );
+    }
+
+    #[test]
+    fn test_strip_nointro_tags_europe() {
+        assert_eq!(strip_nointro_tags("Mega Man (Europe)"), "Mega Man");
+    }
+
+    #[test]
+    fn test_strip_nointro_tags_no_parens() {
+        assert_eq!(strip_nointro_tags("Game Title"), "Game Title");
+    }
+
+    #[test]
+    fn test_strip_nointro_tags_many_tags() {
+        assert_eq!(strip_nointro_tags("Game (Unl) (Beta)"), "Game");
+    }
+
+    #[test]
+    fn test_strip_nointro_tags_empty_string() {
+        assert_eq!(strip_nointro_tags(""), "");
+    }
+
+    #[test]
+    fn test_strip_nointro_tags_only_tags() {
+        assert_eq!(strip_nointro_tags("(USA) (Rev 1)"), "");
     }
 }

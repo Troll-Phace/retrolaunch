@@ -6,7 +6,7 @@ pub mod models;
 pub mod scanner;
 pub mod watcher;
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tauri::Manager;
 
 /// Loads a credential value by checking the database preferences table first,
@@ -77,6 +77,19 @@ pub fn run() {
             };
             app.manage(Arc::new(metadata_clients));
 
+            // Create dat/ directory and load No-Intro DAT data.
+            let dat_dir = app_data_dir.join("dat");
+            std::fs::create_dir_all(&dat_dir)?;
+            let nointro_db = scanner::nointro::load_all_dats(&dat_dir, &db)
+                .unwrap_or_else(|e| {
+                    eprintln!("Warning: failed to load No-Intro DATs: {}", e);
+                    scanner::nointro::NoIntroDatabase::new()
+                });
+            let nointro_state: Arc<RwLock<scanner::nointro::NoIntroDatabase>> =
+                Arc::new(RwLock::new(nointro_db));
+            app.manage(nointro_state.clone());
+            app.manage(Arc::new(dat_dir));
+
             app.manage(db.clone());
 
             // Initialize and auto-start the file system watcher.
@@ -84,9 +97,13 @@ pub fn run() {
             app.manage(fs_watcher.clone());
 
             let watcher_db = db;
+            let watcher_nointro = nointro_state;
             let watcher_app = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = fs_watcher.start(watcher_app, watcher_db).await {
+                if let Err(e) = fs_watcher
+                    .start(watcher_app, watcher_db, watcher_nointro)
+                    .await
+                {
                     eprintln!("Warning: failed to start file watcher: {}", e);
                 }
             });
@@ -115,6 +132,10 @@ pub fn run() {
             commands::config::get_preferences,
             commands::config::set_preference,
             commands::config::reset_to_fresh,
+            commands::scanner::import_dat_file,
+            commands::scanner::get_dat_files,
+            commands::scanner::remove_dat_file,
+            commands::scanner::rematch_nointro,
             commands::watcher::start_watcher,
             commands::watcher::stop_watcher,
             commands::watcher::get_watcher_status,

@@ -109,6 +109,16 @@ CREATE VIRTUAL TABLE IF NOT EXISTS games_fts USING fts5(
     content_rowid='id'
 );
 
+-- No-Intro DAT file tracking
+CREATE TABLE IF NOT EXISTS dat_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    system_id TEXT NOT NULL UNIQUE,
+    file_name TEXT NOT NULL,
+    dat_name TEXT,
+    entry_count INTEGER DEFAULT 0,
+    imported_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_games_system ON games(system_id);
 CREATE INDEX IF NOT EXISTS idx_games_favorite ON games(is_favorite) WHERE is_favorite = 1;

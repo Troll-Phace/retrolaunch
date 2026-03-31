@@ -57,6 +57,39 @@ pub fn hash_rom(file_path: &Path, system_id: &str) -> Result<RomHashes> {
     })
 }
 
+/// Hashes a ROM file without any header stripping.
+///
+/// Used for matching against "Headered" No-Intro DATs where the CRC32
+/// in the DAT was computed over the entire file including the copier header
+/// (e.g. iNES 16-byte header for NES ROMs).
+pub fn hash_rom_full(file_path: &Path) -> Result<RomHashes> {
+    let mut file = File::open(file_path)
+        .with_context(|| format!("Failed to open ROM for full hashing: {:?}", file_path))?;
+
+    let mut crc = crc32fast::Hasher::new();
+    let mut sha = <sha1::Sha1 as digest::Digest>::new();
+    let mut buf = [0u8; 65536];
+
+    loop {
+        let n = file
+            .read(&mut buf)
+            .with_context(|| format!("Failed to read ROM data from: {:?}", file_path))?;
+        if n == 0 {
+            break;
+        }
+        crc.update(&buf[..n]);
+        digest::Digest::update(&mut sha, &buf[..n]);
+    }
+
+    let crc32_value = crc.finalize();
+    let sha1_bytes: [u8; 20] = digest::Digest::finalize(sha).into();
+
+    Ok(RomHashes {
+        crc32: format!("{:08x}", crc32_value),
+        sha1: Some(hex_encode(&sha1_bytes)),
+    })
+}
+
 /// Hashes multiple ROM files in parallel using Rayon.
 ///
 /// Each entry in `files` is a `(PathBuf, system_id)` pair.
@@ -196,6 +229,42 @@ mod tests {
         expected_crc.update(data_only);
         let expected = format!("{:08x}", expected_crc.finalize());
         assert_eq!(result.crc32, expected);
+    }
+
+    #[test]
+    fn test_hash_rom_full_includes_header() {
+        // Build a minimal iNES ROM: 16-byte header + data.
+        let mut rom = vec![0u8; 16 + 32];
+        rom[0..4].copy_from_slice(&[0x4E, 0x45, 0x53, 0x1A]);
+        for i in 0..32 {
+            rom[16 + i] = (i as u8) + 1;
+        }
+        let (_tmp, path) = create_temp_rom("full_hash_", &rom);
+
+        let stripped = hash_rom(&path, "nes").expect("hash_rom failed");
+        let full = hash_rom_full(&path).expect("hash_rom_full failed");
+
+        // The full hash must differ from the stripped hash (header included).
+        assert_ne!(stripped.crc32, full.crc32);
+
+        // The full hash should match the CRC32 of the entire file.
+        let mut expected_crc = crc32fast::Hasher::new();
+        expected_crc.update(&rom);
+        let expected = format!("{:08x}", expected_crc.finalize());
+        assert_eq!(full.crc32, expected);
+    }
+
+    #[test]
+    fn test_hash_rom_full_matches_hash_rom_for_non_headered() {
+        // For a non-headered ROM (e.g. GBA), both should produce the same hash.
+        let data = b"Some GBA ROM data for testing";
+        let (_tmp, path) = create_temp_rom("gba_full_", data);
+
+        let stripped = hash_rom(&path, "gba").expect("hash_rom failed");
+        let full = hash_rom_full(&path).expect("hash_rom_full failed");
+
+        assert_eq!(stripped.crc32, full.crc32);
+        assert_eq!(stripped.sha1, full.sha1);
     }
 
     #[test]

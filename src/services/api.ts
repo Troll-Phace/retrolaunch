@@ -11,6 +11,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type {
   CacheStats,
   ClearCacheParams,
+  DatFile,
   DetectedEmulator,
   EmulatorConfig,
   FetchMetadataParams,
@@ -130,6 +131,30 @@ export async function getCacheStats(): Promise<CacheStats> {
  */
 export async function clearCache(params: ClearCacheParams): Promise<void> {
   return invoke<void>('clear_cache', { params });
+}
+
+// ---------------------------------------------------------------------------
+// No-Intro DAT management
+// ---------------------------------------------------------------------------
+
+/** Imports a No-Intro DAT file for a system. */
+export async function importDatFile(systemId: string, sourcePath: string): Promise<DatFile> {
+  return invoke<DatFile>('import_dat_file', { systemId, sourcePath });
+}
+
+/** Returns all imported DAT files. */
+export async function getDatFiles(): Promise<DatFile[]> {
+  return invoke<DatFile[]>('get_dat_files');
+}
+
+/** Removes the DAT file associated with a system. */
+export async function removeDatFile(systemId: string): Promise<void> {
+  return invoke<void>('remove_dat_file', { systemId });
+}
+
+/** Re-matches all games against imported No-Intro DATs. Returns count of newly matched games. */
+export async function rematchNointro(): Promise<number> {
+  return invoke<number>('rematch_nointro');
 }
 
 // ---------------------------------------------------------------------------

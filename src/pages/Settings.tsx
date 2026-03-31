@@ -1,5 +1,5 @@
 /**
- * Settings page — layout shell with sidebar navigation and 6 content panels.
+ * Settings page — layout shell with sidebar navigation and 7 content panels.
  *
  * Loads shared data on mount and passes it as props to child panels.
  * Provides refresh callbacks that re-fetch data after mutations.
@@ -13,8 +13,9 @@ import {
   getEmulatorConfigs,
   getWatchedDirectories,
   getPreferences,
+  getDatFiles,
 } from "@/services/api";
-import type { EmulatorConfig, System, WatchedDirectory } from "@/types";
+import type { DatFile, EmulatorConfig, System, WatchedDirectory } from "@/types";
 
 import {
   SettingsSidebar,
@@ -26,6 +27,7 @@ import { MetadataApisPanel } from "./settings/MetadataApisPanel";
 import { AppearancePanel } from "./settings/AppearancePanel";
 import { ControlsPanel } from "./settings/ControlsPanel";
 import { AboutPanel } from "./settings/AboutPanel";
+import { NoIntroPanel } from "./settings/NoIntroPanel";
 
 // Panel content transition variants
 const panelVariants = {
@@ -54,20 +56,23 @@ export function Settings() {
   const [configs, setConfigs] = useState<EmulatorConfig[]>([]);
   const [directories, setDirectories] = useState<WatchedDirectory[]>([]);
   const [preferences, setPreferences] = useState<Record<string, string>>({});
+  const [_datFiles, setDatFiles] = useState<DatFile[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
-      const [sys, emu, dirs, prefs] = await Promise.all([
+      const [sys, emu, dirs, prefs, dats] = await Promise.all([
         getSystems(),
         getEmulatorConfigs(),
         getWatchedDirectories(),
         getPreferences(),
+        getDatFiles(),
       ]);
       setSystems(sys);
       setConfigs(emu);
       setDirectories(dirs);
       setPreferences(prefs);
+      setDatFiles(dats);
     } catch (err: unknown) {
       console.error("Failed to load settings data:", err);
     } finally {
@@ -127,6 +132,12 @@ export function Settings() {
             {activeSection === "metadata" && (
               <MetadataApisPanel
                 preferences={preferences}
+                onRefresh={refresh}
+              />
+            )}
+            {activeSection === "nointro" && (
+              <NoIntroPanel
+                systems={systems}
                 onRefresh={refresh}
               />
             )}

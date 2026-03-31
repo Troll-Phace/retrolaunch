@@ -15,7 +15,7 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { BlurhashPlaceholder } from "@/components/BlurhashPlaceholder";
 import { useDynamicColor } from "@/hooks/useDynamicColor";
-import { getGameDetail, getPlayStats, launchGame, toggleFavorite, revealInFileManager } from "@/services/api";
+import { getGameDetail, getPlayStats, launchGame, toggleFavorite, revealInFileManager, fetchMetadata } from "@/services/api";
 import { useAppStore } from "@/store";
 import type { Game, GameDetailResponse, PlayStats, Screenshot } from "@/types";
 
@@ -94,6 +94,27 @@ function ExternalLinkIcon() {
         d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"
         stroke="currentColor"
         strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M1 4v6h6M23 20v-6h-6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"
+        stroke="currentColor"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -323,6 +344,7 @@ export function GameDetail() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [selectedScreenshot, setSelectedScreenshot] = useState<Screenshot | null>(null);
+  const [refetching, setRefetching] = useState(false);
 
   const game: Game | null = detail?.game ?? null;
   const screenshots: Screenshot[] = detail?.screenshots ?? [];
@@ -423,6 +445,39 @@ export function GameDetail() {
   const handleScreenshotClose = useCallback(() => {
     setSelectedScreenshot(null);
   }, []);
+
+  const handleRefetchMetadata = useCallback(async () => {
+    if (!detail || refetching) return;
+    setRefetching(true);
+    try {
+      await fetchMetadata({ game_ids: [detail.game.id], force: true });
+      // Poll the game detail until metadata appears or timeout after 15s
+      const startTime = Date.now();
+      const poll = async () => {
+        try {
+          const updated = await getGameDetail(detail.game.id);
+          if (updated.game.metadata_source || Date.now() - startTime > 15000) {
+            setDetail(updated);
+            setRefetching(false);
+            if (updated.game.metadata_source) {
+              addToast({ type: "success", message: "Metadata updated successfully." });
+            }
+          } else {
+            setTimeout(poll, 1000);
+          }
+        } catch {
+          setRefetching(false);
+        }
+      };
+      // Give the API a head start before polling
+      setTimeout(poll, 1500);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to re-fetch metadata.";
+      addToast({ type: "error", message });
+      setRefetching(false);
+    }
+  }, [detail, refetching, addToast]);
 
   // Metadata fields
   const metadataFields = useMemo(() => {
@@ -652,6 +707,18 @@ export function GameDetail() {
             >
               <HeartIcon filled={isFavorite} />
               {isFavorite ? "Favorited" : "Favorite"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={handleRefetchMetadata}
+              disabled={refetching}
+              className="gap-2"
+            >
+              <span className={refetching ? "animate-spin" : ""}>
+                <RefreshIcon />
+              </span>
+              {refetching ? "Fetching..." : "Re-fetch Metadata"}
             </Button>
           </div>
 

@@ -5,7 +5,7 @@
 
 pub mod queries;
 
-use crate::models::{EmulatorConfig, Game, GameEmulatorOverride, GameMetadata, PlaySession, PlayStats, ScannedRom, System, WatchedDirectory};
+use crate::models::{DatFile, EmulatorConfig, Game, GameEmulatorOverride, GameMetadata, PlaySession, PlayStats, ScannedRom, System, WatchedDirectory};
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 use rusqlite::OptionalExtension;
@@ -820,6 +820,41 @@ impl Database {
         Ok(())
     }
 
+    /// Clears metadata for a single game so it can be re-fetched.
+    ///
+    /// Resets all metadata fields to NULL and deletes associated screenshots,
+    /// allowing the metadata pipeline to treat the game as unfetched.
+    pub fn clear_game_metadata(&self, game_id: i64) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        conn.execute(
+            "UPDATE games SET
+                igdb_id = NULL,
+                developer = NULL,
+                publisher = NULL,
+                release_date = NULL,
+                genre = NULL,
+                description = NULL,
+                cover_path = NULL,
+                blurhash = NULL,
+                metadata_source = NULL,
+                metadata_fetched_at = NULL,
+                updated_at = datetime('now')
+             WHERE id = ?1",
+            rusqlite::params![game_id],
+        )?;
+
+        conn.execute(
+            "DELETE FROM screenshots WHERE game_id = ?1",
+            rusqlite::params![game_id],
+        )?;
+
+        Ok(())
+    }
+
     /// Reads a single preference value by key.
     ///
     /// Returns `None` if the key is not present in the `preferences` table.
@@ -1035,6 +1070,103 @@ impl Database {
         }
 
         Ok(games_deleted)
+    }
+
+    // ── No-Intro DAT file methods ─────────────────────────────────────
+
+    /// Updates the `nointro_name` and `region` for a game identified by ROM path.
+    pub fn update_nointro_match_by_path(
+        &self,
+        rom_path: &str,
+        nointro_name: &str,
+        region: Option<&str>,
+    ) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+        conn.execute(
+            "UPDATE games SET nointro_name = ?1, region = ?2, updated_at = datetime('now') WHERE rom_path = ?3",
+            rusqlite::params![nointro_name, region, rom_path],
+        )?;
+        Ok(())
+    }
+
+    /// Records an imported DAT file. Uses INSERT OR REPLACE for re-imports.
+    pub fn upsert_dat_file(
+        &self,
+        system_id: &str,
+        file_name: &str,
+        dat_name: Option<&str>,
+        entry_count: i32,
+    ) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+        conn.execute(
+            "INSERT INTO dat_files (system_id, file_name, dat_name, entry_count, imported_at)
+             VALUES (?1, ?2, ?3, ?4, datetime('now'))
+             ON CONFLICT(system_id) DO UPDATE SET
+               file_name = excluded.file_name,
+               dat_name = excluded.dat_name,
+               entry_count = excluded.entry_count,
+               imported_at = excluded.imported_at",
+            rusqlite::params![system_id, file_name, dat_name, entry_count],
+        )?;
+        Ok(())
+    }
+
+    /// Returns all tracked DAT files.
+    pub fn get_dat_files(&self) -> Result<Vec<DatFile>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+        let mut stmt = conn.prepare(
+            "SELECT id, system_id, file_name, dat_name, entry_count, imported_at FROM dat_files ORDER BY system_id",
+        )?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(DatFile {
+                    id: row.get(0)?,
+                    system_id: row.get(1)?,
+                    file_name: row.get(2)?,
+                    dat_name: row.get(3)?,
+                    entry_count: row.get(4)?,
+                    imported_at: row.get(5)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Removes a DAT file record by system_id.
+    pub fn remove_dat_file(&self, system_id: &str) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+        conn.execute(
+            "DELETE FROM dat_files WHERE system_id = ?1",
+            rusqlite::params![system_id],
+        )?;
+        Ok(())
+    }
+
+    /// Returns all games that have a CRC32 hash but no `nointro_name` set.
+    pub fn get_games_without_nointro(&self) -> Result<Vec<Game>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+        let mut stmt = conn.prepare(
+            "SELECT * FROM games WHERE rom_hash_crc32 IS NOT NULL AND nointro_name IS NULL",
+        )?;
+        let rows = stmt
+            .query_map([], queries::row_to_game)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 }
 
@@ -1822,5 +1954,133 @@ mod tests {
             result.is_err(),
             "toggle_favorite on a nonexistent game should return an error"
         );
+    }
+
+    // ── No-Intro / DAT file integration tests ────────────────────────────
+
+    #[test]
+    fn test_upsert_dat_file() {
+        let db = Database::new_in_memory().unwrap();
+
+        // Insert a new DAT file record.
+        db.upsert_dat_file("nes", "NES.dat", Some("Nintendo - NES"), 500)
+            .unwrap();
+
+        let dats = db.get_dat_files().unwrap();
+        assert_eq!(dats.len(), 1);
+        assert_eq!(dats[0].system_id, "nes");
+        assert_eq!(dats[0].file_name, "NES.dat");
+        assert_eq!(dats[0].dat_name, Some("Nintendo - NES".to_string()));
+        assert_eq!(dats[0].entry_count, 500);
+
+        // Re-import for the same system_id should update, not duplicate.
+        db.upsert_dat_file("nes", "NES_v2.dat", Some("Nintendo - NES v2"), 600)
+            .unwrap();
+
+        let dats = db.get_dat_files().unwrap();
+        assert_eq!(dats.len(), 1, "UPSERT should not create a duplicate row");
+        assert_eq!(dats[0].file_name, "NES_v2.dat");
+        assert_eq!(dats[0].dat_name, Some("Nintendo - NES v2".to_string()));
+        assert_eq!(dats[0].entry_count, 600);
+    }
+
+    #[test]
+    fn test_get_dat_files_empty() {
+        let db = Database::new_in_memory().unwrap();
+
+        let dats = db.get_dat_files().unwrap();
+        assert!(
+            dats.is_empty(),
+            "Fresh database should have no DAT file records"
+        );
+    }
+
+    #[test]
+    fn test_remove_dat_file() {
+        let db = Database::new_in_memory().unwrap();
+
+        db.upsert_dat_file("nes", "NES.dat", Some("Nintendo - NES"), 500)
+            .unwrap();
+        assert_eq!(db.get_dat_files().unwrap().len(), 1);
+
+        db.remove_dat_file("nes").unwrap();
+
+        let dats = db.get_dat_files().unwrap();
+        assert!(dats.is_empty(), "DAT file should be removed");
+    }
+
+    #[test]
+    fn test_update_nointro_match_by_path() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("smb", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+        assert!(game_id > 0);
+
+        // Verify nointro fields are initially unset.
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert!(game.nointro_name.is_none());
+        assert!(game.region.is_none());
+
+        // Apply a No-Intro match.
+        db.update_nointro_match_by_path(
+            "/roms/smb.nes",
+            "Super Mario Bros. (USA)",
+            Some("USA"),
+        )
+        .unwrap();
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(
+            game.nointro_name,
+            Some("Super Mario Bros. (USA)".to_string())
+        );
+        assert_eq!(game.region, Some("USA".to_string()));
+    }
+
+    #[test]
+    fn test_get_games_without_nointro() {
+        let db = Database::new_in_memory().unwrap();
+
+        // Insert two games with CRC32 hashes but no nointro_name.
+        let rom1 = ScannedRom {
+            file_path: PathBuf::from("/roms/game_a.nes"),
+            file_name: "game_a.nes".to_string(),
+            file_size: 1024,
+            last_modified: "1700000000".to_string(),
+            system_id: "nes".to_string(),
+            crc32: "11111111".to_string(),
+            sha1: None,
+        };
+        let rom2 = ScannedRom {
+            file_path: PathBuf::from("/roms/game_b.nes"),
+            file_name: "game_b.nes".to_string(),
+            file_size: 2048,
+            last_modified: "1700000000".to_string(),
+            system_id: "nes".to_string(),
+            crc32: "22222222".to_string(),
+            sha1: None,
+        };
+
+        let id1 = db.insert_game(&rom1).unwrap();
+        let id2 = db.insert_game(&rom2).unwrap();
+        assert!(id1 > 0);
+        assert!(id2 > 0);
+
+        // Both should appear as unmatched.
+        let unmatched = db.get_games_without_nointro().unwrap();
+        assert_eq!(unmatched.len(), 2);
+
+        // Match one of them.
+        db.update_nointro_match_by_path(
+            "/roms/game_a.nes",
+            "Game A (USA)",
+            Some("USA"),
+        )
+        .unwrap();
+
+        // Only the unmatched game should remain.
+        let unmatched = db.get_games_without_nointro().unwrap();
+        assert_eq!(unmatched.len(), 1);
+        assert_eq!(unmatched[0].rom_path, "/roms/game_b.nes");
     }
 }

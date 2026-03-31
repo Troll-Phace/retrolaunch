@@ -2,8 +2,9 @@
 
 use crate::db::Database;
 use crate::models::WatcherStatus;
+use crate::scanner::nointro::NoIntroDatabase;
 use crate::watcher::FsWatcher;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tauri::{AppHandle, State};
 
 /// Starts the file system watcher for all enabled watched directories.
@@ -12,8 +13,11 @@ pub async fn start_watcher(
     app: AppHandle,
     db: State<'_, Arc<Database>>,
     watcher: State<'_, Arc<FsWatcher>>,
+    nointro: State<'_, Arc<RwLock<NoIntroDatabase>>>,
 ) -> Result<(), String> {
-    watcher.start(app, db.inner().clone()).await
+    watcher
+        .start(app, db.inner().clone(), nointro.inner().clone())
+        .await
 }
 
 /// Stops the file system watcher.

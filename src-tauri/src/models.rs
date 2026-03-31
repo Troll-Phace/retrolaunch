@@ -257,6 +257,17 @@ pub struct FetchMetadataParams {
     pub force: bool,
 }
 
+/// A tracked No-Intro DAT file (matches `dat_files` table).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatFile {
+    pub id: i64,
+    pub system_id: String,
+    pub file_name: String,
+    pub dat_name: Option<String>,
+    pub entry_count: i32,
+    pub imported_at: String,
+}
+
 /// Internal metadata retrieved from an API source (IGDB or ScreenScraper).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameMetadata {

@@ -284,6 +284,24 @@ export interface ClearCacheParams {
 // Utility type aliases
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// No-Intro DAT files
+// ---------------------------------------------------------------------------
+
+/** A tracked No-Intro DAT file (mirrors `dat_files` table). */
+export interface DatFile {
+  id: number;
+  system_id: string;
+  file_name: string;
+  dat_name: string | null;
+  entry_count: number;
+  imported_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Utility type aliases
+// ---------------------------------------------------------------------------
+
 /** Available application themes. */
 export type ThemeName = 'dark' | 'light' | 'oled' | 'retro';
 

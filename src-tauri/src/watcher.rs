@@ -13,10 +13,11 @@
 
 use crate::db::Database;
 use crate::scanner;
+use crate::scanner::nointro::NoIntroDatabase;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 
@@ -55,7 +56,12 @@ impl FsWatcher {
     /// Reads `watched_directories` (where `enabled = 1`) from the database,
     /// creates a `notify::RecommendedWatcher`, and spawns a tokio task that
     /// processes incoming file events with debouncing.
-    pub async fn start(&self, app: AppHandle, db: Arc<Database>) -> Result<(), String> {
+    pub async fn start(
+        &self,
+        app: AppHandle,
+        db: Arc<Database>,
+        nointro: Arc<RwLock<NoIntroDatabase>>,
+    ) -> Result<(), String> {
         // Stop any existing watcher first.
         self.stop()?;
 
@@ -114,7 +120,7 @@ impl FsWatcher {
         }
 
         // Spawn the background event processing loop.
-        tokio::spawn(process_events(app, db, event_rx, shutdown_rx));
+        tokio::spawn(process_events(app, db, nointro, event_rx, shutdown_rx));
 
         if !watched_paths.is_empty() {
             eprintln!(
@@ -223,6 +229,7 @@ impl FsWatcher {
 async fn process_events(
     app: AppHandle,
     db: Arc<Database>,
+    nointro: Arc<RwLock<NoIntroDatabase>>,
     mut event_rx: tokio::sync::mpsc::UnboundedReceiver<Event>,
     mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
 ) {
@@ -269,10 +276,16 @@ async fn process_events(
                     // Process the file on a blocking thread since hashing is CPU-bound.
                     let db_clone = db.clone();
                     let app_clone = app.clone();
+                    let nointro_clone = nointro.clone();
                     let file_path = path.clone();
 
                     tokio::task::spawn_blocking(move || {
-                        match scanner::process_single_file(&file_path, &db_clone) {
+                        let nointro_db = nointro_clone
+                            .read()
+                            .map(|g| g.clone())
+                            .unwrap_or_else(|_| NoIntroDatabase::new());
+
+                        match scanner::process_single_file(&file_path, &db_clone, &nointro_db) {
                             Ok(Some(game)) => {
                                 eprintln!(
                                     "Watcher: new ROM detected - {} ({})",

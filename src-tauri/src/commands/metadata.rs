@@ -42,6 +42,12 @@ pub async fn fetch_metadata(
         }
     } else {
         // Fetch only the specified games.
+        if params.force {
+            // Clear existing metadata so the batch processor doesn't skip them.
+            for id in &params.game_ids {
+                let _ = db.clear_game_metadata(*id);
+            }
+        }
         let mut games = Vec::with_capacity(params.game_ids.len());
         for id in &params.game_ids {
             if let Some(game) = db.get_game_by_id(*id).map_err(|e| e.to_string())? {

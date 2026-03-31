@@ -265,14 +265,28 @@ impl IgdbClient {
         }
 
         // Score results to find the best match. Lower score = better.
-        // Criteria: main game category, has publisher/developer, more companies,
+        // Criteria: name similarity (dominant), main game category, more companies,
         // lower IGDB ID (older/more established entries).
         let game = games
             .into_iter()
             .min_by_key(|g| {
+                // Name similarity score — heavily weighted so exact matches always win.
+                let game_name = g.name.as_deref().unwrap_or("");
+                let name_lower = name.to_ascii_lowercase();
+                let game_name_lower = game_name.to_ascii_lowercase();
+                let name_score: i64 = if game_name.eq_ignore_ascii_case(name) {
+                    -10000 // Exact match (case-insensitive)
+                } else if game_name_lower.contains(&name_lower)
+                    || name_lower.contains(&game_name_lower)
+                {
+                    -5000 // One name is a substring of the other
+                } else {
+                    0 // No obvious relationship
+                };
+
                 let category_score: i64 = match g.category {
-                    Some(0) => 0,  // Main game
-                    None => 100,   // Unknown
+                    Some(0) => 0,   // Main game
+                    None => 100,    // Unknown
                     Some(_) => 200, // DLC, mod, expansion
                 };
 
@@ -289,7 +303,7 @@ impl IgdbClient {
                 // added to IGDB first and have lower IDs than fan-made entries.
                 let id_score = g.id.unwrap_or(i64::MAX) / 1000;
 
-                category_score + company_score + id_score
+                name_score + category_score + company_score + id_score
             })
             .unwrap(); // Safe: we checked games is not empty above.
 
