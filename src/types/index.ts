@@ -231,6 +231,7 @@ export interface MetadataProgress {
   total: number;
   current_game: string;
   source: string | null;
+  cover_path: string | null;
 }
 
 /** Internal metadata retrieved from an API source (IGDB or ScreenScraper). */

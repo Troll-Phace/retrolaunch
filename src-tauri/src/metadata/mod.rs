@@ -162,7 +162,7 @@ pub async fn fetch_metadata_batch(
                 eprintln!("Failed to mark game {} unmatched: {}", game.id, e);
             }
             fetched += 1;
-            emit_progress_throttled(app, fetched, total, &game.title, None, &mut last_emit);
+            emit_progress_throttled(app, fetched, total, &game.title, None, None, &mut last_emit);
             continue;
         }
 
@@ -235,6 +235,7 @@ pub async fn fetch_metadata_batch(
             total,
             &game.title,
             source_name.as_deref(),
+            cover_path.as_deref(),
             &mut last_emit,
         );
     }
@@ -249,6 +250,7 @@ pub async fn fetch_metadata_batch(
                 .map(|g| g.title.clone())
                 .unwrap_or_default(),
             source: None,
+            cover_path: None,
         };
         let _ = app.emit("metadata-progress", &progress);
     }
@@ -263,6 +265,7 @@ fn emit_progress_throttled(
     total: u32,
     current_game: &str,
     source: Option<&str>,
+    cover_path: Option<&str>,
     last_emit: &mut Instant,
 ) {
     if last_emit.elapsed().as_millis() >= 100 || fetched == total {
@@ -271,6 +274,7 @@ fn emit_progress_throttled(
             total,
             current_game: current_game.to_string(),
             source: source.map(|s| s.to_string()),
+            cover_path: cover_path.map(|s| s.to_string()),
         };
         let _ = app.emit("metadata-progress", &progress);
         *last_emit = Instant::now();

@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { convertFileSrc } from '@tauri-apps/api/core';
 
 import { ProgressBar } from '@/components/ProgressBar';
 import { fetchMetadata, getCacheStats } from '@/services/api';
@@ -65,7 +66,7 @@ export function MetadataFetchStep({ wizardData, updateWizardData }: MetadataFetc
   const shouldReduceMotion = useReducedMotion();
   const fetchStartedRef = useRef(false);
   const { progress, isComplete, activate } = useMetadataProgress();
-  const [recentGames, setRecentGames] = useState<string[]>([]);
+  const [recentGames, setRecentGames] = useState<{ name: string; coverPath: string | null }[]>([]);
   const [cacheSize, setCacheSize] = useState(0);
 
   // -----------------------------------------------------------------------
@@ -90,10 +91,13 @@ export function MetadataFetchStep({ wizardData, updateWizardData }: MetadataFetc
   useEffect(() => {
     if (!progress?.current_game) return;
     setRecentGames((prev) => {
-      const next = [progress.current_game, ...prev.filter((g) => g !== progress.current_game)];
+      const next = [
+        { name: progress.current_game, coverPath: progress.cover_path ?? null },
+        ...prev.filter((g) => g.name !== progress.current_game),
+      ];
       return next.slice(0, 5);
     });
-  }, [progress?.current_game]);
+  }, [progress?.current_game, progress?.cover_path]);
 
   // -----------------------------------------------------------------------
   // Update wizard data from progress
@@ -214,15 +218,23 @@ export function MetadataFetchStep({ wizardData, updateWizardData }: MetadataFetc
           initial="hidden"
           animate="show"
         >
-          {recentGames.map((gameName) => (
+          {recentGames.map((game) => (
             <motion.div
-              key={gameName}
+              key={game.name}
               variants={shouldReduceMotion ? reducedStaggerItem : staggerItem}
               className="flex-shrink-0 w-28"
             >
-              <div className="bg-deep rounded-md aspect-[3/4] w-full" />
-              <p className="text-xs text-text-primary mt-1.5 truncate" title={gameName}>
-                {gameName}
+              {game.coverPath ? (
+                <img
+                  src={convertFileSrc(game.coverPath)}
+                  alt={game.name}
+                  className="bg-deep rounded-md aspect-[3/4] w-full object-cover"
+                />
+              ) : (
+                <div className="bg-deep rounded-md aspect-[3/4] w-full" />
+              )}
+              <p className="text-xs text-text-primary mt-1.5 truncate" title={game.name}>
+                {game.name}
               </p>
               <p className="text-[10px] text-success">Processed</p>
             </motion.div>

@@ -57,6 +57,7 @@ pub async fn fetch_metadata(
             total: 0,
             current_game: String::new(),
             source: None,
+            cover_path: None,
         });
         return Ok(());
     }

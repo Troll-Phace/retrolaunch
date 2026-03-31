@@ -202,6 +202,8 @@ pub struct MetadataProgress {
     pub total: u32,
     pub current_game: String,
     pub source: Option<String>,
+    /// Local file path to the cover image, if one was downloaded for this game.
+    pub cover_path: Option<String>,
 }
 
 /// Statistics about the image cache on disk.
