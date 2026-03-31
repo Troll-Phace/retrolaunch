@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import type { Game, PlayStats, System } from "@/types";
-import { getGames, getPlayStats, getSystems, launchGame } from "@/services/api";
+import { getGames, getPlayStats, getSystems, launchGame, scanDirectories } from "@/services/api";
 import { useDynamicColor } from "@/hooks/useDynamicColor";
 import { HeroBanner } from "@/components/HeroBanner";
 import { HorizontalScrollRow } from "@/components/HorizontalScrollRow";
 import { GameCard } from "@/components/GameCard";
 import { SystemCard } from "@/components/SystemCard";
+import { EmptyState } from "@/components/EmptyState";
 
 export function Home() {
   const navigate = useNavigate();
@@ -99,6 +100,34 @@ export function Home() {
     return (
       <div className="p-6">
         <p className="text-text-secondary">Loading...</p>
+      </div>
+    );
+  }
+
+  if (games.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <EmptyState
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" className="size-full" aria-hidden="true">
+              <path
+                d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          }
+          title="Your library is empty"
+          description="Add ROM directories and scan for games to get started."
+          actionLabel="Add ROM Directory"
+          onAction={() => navigate("/settings")}
+          secondaryActionLabel="Run Scan"
+          onSecondaryAction={() => {
+            scanDirectories([]).catch(console.error);
+          }}
+        />
       </div>
     );
   }

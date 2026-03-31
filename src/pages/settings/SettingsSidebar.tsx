@@ -171,7 +171,7 @@ export function SettingsSidebar({ activeSection, onSelect }: SettingsSidebarProp
               <button
                 type="button"
                 onClick={() => onSelect(item.id)}
-                className={`relative w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 cursor-pointer ${
+                className={`relative w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
                   isActive
                     ? "border-l-[3px] border-transparent text-accent"
                     : "border-l-[3px] border-transparent text-text-secondary hover:bg-elevated"

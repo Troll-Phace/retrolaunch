@@ -14,9 +14,13 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { BlurhashPlaceholder } from "@/components/BlurhashPlaceholder";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { useDynamicColor } from "@/hooks/useDynamicColor";
 import { getGameDetail, getPlayStats, launchGame, toggleFavorite, revealInFileManager, fetchMetadata } from "@/services/api";
 import { useAppStore } from "@/store";
+import { classifyError } from "@/utils/errorClassifier";
+import type { ClassifiedError } from "@/utils/errorClassifier";
 import type { Game, GameDetailResponse, PlayStats, Screenshot } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -342,6 +346,7 @@ export function GameDetail() {
   // UI state
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<ClassifiedError | null>(null);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [selectedScreenshot, setSelectedScreenshot] = useState<Screenshot | null>(null);
   const [refetching, setRefetching] = useState(false);
@@ -397,18 +402,33 @@ export function GameDetail() {
   const handleLaunch = useCallback(async () => {
     if (!game) return;
     setIsLaunching(true);
+    setLaunchError(null);
     try {
       await launchGame(game.id);
     } catch (err: unknown) {
-      const message =
+      const raw =
         err instanceof Error
           ? err.message
-          : "Failed to launch game. Check emulator configuration.";
-      addToast({ type: "error", message });
+          : String(err ?? "Failed to launch game.");
+      const classified = classifyError(raw);
+      if (classified.isTransient) {
+        addToast({
+          type: "error",
+          message: classified.description,
+          action: classified.actionRoute
+            ? {
+                label: classified.actionLabel!,
+                onClick: () => navigate(classified.actionRoute!),
+              }
+            : undefined,
+        });
+      } else {
+        setLaunchError(classified);
+      }
     } finally {
       setIsLaunching(false);
     }
-  }, [game, addToast]);
+  }, [game, addToast, navigate]);
 
   const handleToggleFavorite = useCallback(async () => {
     if (!game) return;
@@ -472,12 +492,22 @@ export function GameDetail() {
       // Give the API a head start before polling
       setTimeout(poll, 1500);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to re-fetch metadata.";
-      addToast({ type: "error", message });
+      const raw =
+        err instanceof Error ? err.message : String(err ?? "Failed to re-fetch metadata.");
+      const classified = classifyError(raw);
+      addToast({
+        type: "error",
+        message: `${classified.title}: ${classified.description}`,
+        action: classified.actionRoute
+          ? {
+              label: classified.actionLabel!,
+              onClick: () => navigate(classified.actionRoute!),
+            }
+          : undefined,
+      });
       setRefetching(false);
     }
-  }, [detail, refetching, addToast]);
+  }, [detail, refetching, addToast, navigate]);
 
   // Metadata fields
   const metadataFields = useMemo(() => {
@@ -722,14 +752,53 @@ export function GameDetail() {
             </Button>
           </div>
 
+          {/* Launch error inline state */}
+          {launchError && (
+            <ErrorState
+              variant="inline"
+              title={launchError.title}
+              description={launchError.description}
+              actionLabel={launchError.actionLabel}
+              onAction={
+                launchError.actionRoute
+                  ? () => {
+                      setLaunchError(null);
+                      navigate(launchError.actionRoute!);
+                    }
+                  : undefined
+              }
+              onRetry={() => {
+                setLaunchError(null);
+                handleLaunch();
+              }}
+              className="mt-4"
+            />
+          )}
+
           {/* Metadata grid */}
-          {metadataFields.length > 0 && (
+          {metadataFields.length > 0 ? (
             <dl className="grid grid-cols-2 gap-x-8 gap-y-3 mt-6">
               {metadataFields.map((field) => (
                 <MetadataField key={field.label} label={field.label} value={field.value} />
               ))}
             </dl>
-          )}
+          ) : !game.description && !game.genre ? (
+            <div className="mt-6">
+              <EmptyState
+                variant="inline"
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" className="size-full" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                }
+                title="No metadata available"
+                description="Fetch metadata from online databases to enrich this game's details."
+                actionLabel="Fetch Metadata"
+                onAction={handleRefetchMetadata}
+              />
+            </div>
+          ) : null}
 
           {/* Description */}
           {game.description && (
@@ -788,7 +857,18 @@ export function GameDetail() {
             </div>
           </div>
         ) : (
-          <p className="mt-3 text-[14px] text-text-dim">Not played yet</p>
+          <EmptyState
+            variant="inline"
+            icon={
+              <svg viewBox="0 0 24 24" fill="none" className="size-full" aria-hidden="true">
+                <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
+              </svg>
+            }
+            title="Not played yet"
+            description="Launch this game to start tracking your playtime."
+            actionLabel="Launch Game"
+            onAction={handleLaunch}
+          />
         )}
       </motion.div>
 

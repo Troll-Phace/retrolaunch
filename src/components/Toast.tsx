@@ -19,6 +19,10 @@ export interface Toast {
   message: string;
   type: 'success' | 'error' | 'info';
   duration?: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +181,16 @@ export function ToastItem({ toast }: ToastItemProps) {
       <p className="flex-1 text-[13px] leading-snug text-text-primary">
         {toast.message}
       </p>
+
+      {toast.action && (
+        <button
+          type="button"
+          onClick={toast.action.onClick}
+          className="shrink-0 text-sm font-medium text-accent underline transition-colors hover:text-accent/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {toast.action.label}
+        </button>
+      )}
 
       <button
         type="button"

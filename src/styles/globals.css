@@ -130,6 +130,19 @@
   --system-atari2600: #8b6914;
 }
 
+/* ===== Focus-visible baseline for accessibility ===== */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove default outline when custom focus styles are applied */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+}
+
 /* ===== Base Styles ===== */
 body {
   background-color: var(--bg-void);

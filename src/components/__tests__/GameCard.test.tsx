@@ -18,6 +18,11 @@ vi.mock('framer-motion', () => ({
   useReducedMotion: () => false,
 }));
 
+// Mock Tauri core API
+vi.mock('@tauri-apps/api/core', () => ({
+  convertFileSrc: (path: string) => `asset://${path}`,
+}));
+
 // Mock BlurhashPlaceholder since it depends on canvas
 vi.mock('@/components/BlurhashPlaceholder', () => ({
   BlurhashPlaceholder: ({ alt }: { alt: string }) => (

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Game, GameSortField, SortOrder, System } from "@/types";
-import { getGames, getSystems } from "@/services/api";
+import { getGames, getSystems, scanDirectories } from "@/services/api";
 import { useAppStore } from "@/store";
 import { useDebounce } from "@/hooks/useDebounce";
 import { SystemThemeHeader } from "@/components/SystemThemeHeader";
@@ -9,6 +9,7 @@ import { GenreFilterBar } from "@/components/GenreFilterBar";
 import { SortDropdown } from "@/components/SortDropdown";
 import { ViewToggle } from "@/components/ViewToggle";
 import { VirtualizedGameGrid } from "@/components/VirtualizedGameGrid";
+import { EmptyState } from "@/components/EmptyState";
 
 // ---------------------------------------------------------------------------
 // Default theme color when the system has none defined
@@ -105,6 +106,23 @@ export function SystemGrid() {
     [navigate],
   );
 
+  // ---- Whether any filters are currently applied ---------------------------
+  const hasFilters = useMemo(
+    () => genre !== "All" || Boolean(debouncedSearch),
+    [genre, debouncedSearch],
+  );
+
+  // ---- Clear all filters --------------------------------------------------
+  const handleClearFilters = useCallback(() => {
+    setGenre("All");
+    useAppStore.getState().setSearchQuery("");
+  }, []);
+
+  // ---- Scan handler for empty state ---------------------------------------
+  const handleScanNow = useCallback(() => {
+    scanDirectories([]).catch(console.error);
+  }, []);
+
   // ---- Derived values -----------------------------------------------------
   const systemName = system?.name ?? "Loading...";
   const themeColor = system?.theme_color ?? FALLBACK_THEME_COLOR;
@@ -149,9 +167,33 @@ export function SystemGrid() {
         <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-text-secondary">Loading games...</p>
         </div>
+      ) : games.length === 0 && !hasFilters ? (
+        <div className="flex flex-1 items-center justify-center px-6 pb-6">
+          <EmptyState
+            icon={
+              <svg viewBox="0 0 24 24" fill="none" className="size-full" aria-hidden="true">
+                <path
+                  d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            }
+            title="No games found for this system"
+            description="Scan your ROM directories to add games."
+            actionLabel="Scan Now"
+            onAction={handleScanNow}
+          />
+        </div>
       ) : (
         <div className="flex-1 min-h-0 px-6 pb-6">
-          <VirtualizedGameGrid games={games} onGameClick={handleGameClick} />
+          <VirtualizedGameGrid
+            games={games}
+            onGameClick={handleGameClick}
+            onClearFilters={hasFilters ? handleClearFilters : undefined}
+          />
         </div>
       )}
     </div>

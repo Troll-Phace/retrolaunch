@@ -5,8 +5,22 @@ import path from "path";
 
 const host = process.env.TAURI_DEV_HOST;
 
-export default defineConfig(async () => ({
-  plugins: [react(), tailwindcss()],
+export default defineConfig(async () => {
+  // Conditionally load rollup-plugin-visualizer when ANALYZE=true
+  const visualizerPlugin =
+    process.env.ANALYZE === "true"
+      ? [
+          (await import("rollup-plugin-visualizer")).visualizer({
+            open: true,
+            filename: "dist/bundle-stats.html",
+            gzipSize: true,
+            brotliSize: true,
+          }),
+        ]
+      : [];
+
+  return {
+  plugins: [react(), tailwindcss(), ...visualizerPlugin],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -26,4 +40,5 @@ export default defineConfig(async () => ({
   optimizeDeps: {
     entries: ["src/main.tsx"],
   },
-}));
+};
+});

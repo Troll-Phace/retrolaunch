@@ -1,11 +1,12 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
-import { Home } from "@/pages/Home";
-import { SystemGrid } from "@/pages/SystemGrid";
-import { GameDetail } from "@/pages/GameDetail";
-import { Settings } from "@/pages/Settings";
-import { Onboarding } from "@/pages/onboarding";
+
+const Home = lazy(() => import("@/pages/Home").then(m => ({ default: m.Home })));
+const SystemGrid = lazy(() => import("@/pages/SystemGrid").then(m => ({ default: m.SystemGrid })));
+const GameDetail = lazy(() => import("@/pages/GameDetail").then(m => ({ default: m.GameDetail })));
+const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.Settings })));
+const Onboarding = lazy(() => import("@/pages/onboarding").then(m => ({ default: m.Onboarding })));
 import { useHydrateStore, useAppStore } from "@/store";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
@@ -98,9 +99,11 @@ function AppShell() {
             transition={{ duration: transitionDuration, ease: "easeOut" }}
             style={{ position: "relative" }}
           >
-            <LayoutGroup>
-              <Outlet />
-            </LayoutGroup>
+            <Suspense fallback={<div className="min-h-screen bg-void" />}>
+              <LayoutGroup>
+                <Outlet />
+              </LayoutGroup>
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>
@@ -123,7 +126,11 @@ function App() {
     <Routes>
       {!onboardingComplete ? (
         <>
-          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/onboarding" element={
+            <Suspense fallback={<div className="min-h-screen bg-void" />}>
+              <Onboarding />
+            </Suspense>
+          } />
           {/* Redirect ALL non-onboarding routes to /onboarding */}
           <Route path="*" element={<Navigate to="/onboarding" replace />} />
         </>

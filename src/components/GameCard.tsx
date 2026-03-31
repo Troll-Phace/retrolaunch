@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Game } from "@/types";
@@ -9,6 +9,17 @@ export interface GameCardProps {
   game: Game;
   onClick?: (game: Game) => void;
   className?: string;
+  /** Whether this card is keyboard-focused in the grid. */
+  focused?: boolean;
+  /** Roving tabindex value — only the focused card should be tabbable. */
+  tabIndex?: number;
+  /**
+   * When true, omit the `layoutId` prop from the cover art motion element.
+   * Use this inside virtualized grids to avoid expensive layout tracking
+   * across 1000+ cards. Defaults to false so non-grid contexts (e.g. home
+   * page horizontal scroll rows) retain shared-element layout transitions.
+   */
+  disableLayoutAnimation?: boolean;
 }
 
 /** Extract a 4-digit year from an ISO date string or year-only string. */
@@ -20,7 +31,7 @@ function extractYear(dateStr: string | null): string | null {
 
 const springTransition = { type: "spring" as const, stiffness: 400, damping: 25 };
 
-export function GameCard({ game, onClick, className = "" }: GameCardProps) {
+export const GameCard = memo(function GameCard({ game, onClick, className = "", focused = false, tabIndex: tabIndexProp, disableLayoutAnimation = false }: GameCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const shouldReduceMotion = useReducedMotion();
 
@@ -34,8 +45,8 @@ export function GameCard({ game, onClick, className = "" }: GameCardProps) {
 
   return (
     <motion.div
-      className={`group cursor-pointer overflow-hidden rounded-xl border bg-surface transition-colors duration-200 ${
-        isHovered ? "border-accent/50" : "border-ghost"
+      className={`group cursor-pointer overflow-hidden rounded-xl border bg-surface transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-void ${
+        focused ? "ring-2 ring-accent/50 ring-offset-2 ring-offset-void border-accent/50" : isHovered ? "border-accent/50" : "border-ghost"
       } ${className}`}
       style={{
         boxShadow: isHovered
@@ -48,7 +59,7 @@ export function GameCard({ game, onClick, className = "" }: GameCardProps) {
       onHoverEnd={() => setIsHovered(false)}
       onClick={() => onClick?.(game)}
       role="button"
-      tabIndex={0}
+      tabIndex={tabIndexProp ?? 0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -60,7 +71,7 @@ export function GameCard({ game, onClick, className = "" }: GameCardProps) {
       {/* Cover art area */}
       <motion.div
         className="relative aspect-[3/4] w-full overflow-hidden"
-        layoutId={`game-cover-${game.id}`}
+        layoutId={disableLayoutAnimation ? undefined : `game-cover-${game.id}`}
         transition={
           shouldReduceMotion
             ? { duration: 0 }
@@ -150,4 +161,4 @@ export function GameCard({ game, onClick, className = "" }: GameCardProps) {
       </div>
     </motion.div>
   );
-}
+});

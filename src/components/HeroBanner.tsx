@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -78,7 +79,7 @@ function PlayIcon() {
   );
 }
 
-export function HeroBanner({ game, playStats, onPlay }: HeroBannerProps) {
+export const HeroBanner = memo(function HeroBanner({ game, playStats, onPlay }: HeroBannerProps) {
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
 
@@ -255,4 +256,4 @@ export function HeroBanner({ game, playStats, onPlay }: HeroBannerProps) {
       </div>
     </motion.div>
   );
-}
+});

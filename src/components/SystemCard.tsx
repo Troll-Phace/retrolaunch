@@ -1,4 +1,4 @@
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, memo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { System } from "@/types";
 
@@ -11,7 +11,7 @@ export interface SystemCardProps {
 
 const springTransition = { type: "spring" as const, stiffness: 400, damping: 25 };
 
-export function SystemCard({
+export const SystemCard = memo(function SystemCard({
   system,
   gameCount,
   onClick,
@@ -37,7 +37,7 @@ export function SystemCard({
 
   return (
     <motion.div
-      className={`flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border p-4 bg-surface transition-colors duration-200 ${
+      className={`flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border p-4 bg-surface transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-void ${
         isHovered && !themeColor ? "border-accent/50" : isHovered ? "" : "border-ghost"
       } ${className}`}
       style={{
@@ -74,4 +74,4 @@ export function SystemCard({
       <span className="text-[10px] text-text-dim">games</span>
     </motion.div>
   );
-}
+});

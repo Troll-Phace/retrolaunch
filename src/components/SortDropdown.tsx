@@ -90,6 +90,17 @@ export function SortDropdown({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" && !open) {
+            e.preventDefault();
+            setOpen(true);
+            // Focus first item after dropdown opens
+            requestAnimationFrame(() => {
+              const firstItem = containerRef.current?.querySelector<HTMLElement>("[role='option']");
+              firstItem?.focus();
+            });
+          }
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
         className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-transparent px-4 py-1.5 text-sm font-medium text-text-secondary transition-colors duration-200 hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-void"
@@ -123,10 +134,20 @@ export function SortDropdown({
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       handleSelect(option);
+                    } else if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                      next?.focus();
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      const prev = e.currentTarget.previousElementSibling as HTMLElement | null;
+                      prev?.focus();
+                    } else if (e.key === "Escape") {
+                      setOpen(false);
                     }
                   }}
                   tabIndex={0}
-                  className={`cursor-pointer px-4 py-2.5 text-sm transition-colors duration-150 ${
+                  className={`cursor-pointer px-4 py-2.5 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
                     isActive
                       ? "font-semibold text-accent"
                       : "text-text-secondary hover:bg-elevated hover:text-text-primary"
