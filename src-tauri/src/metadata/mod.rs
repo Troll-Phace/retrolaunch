@@ -10,9 +10,15 @@ pub mod screenscraper;
 
 use crate::db::Database;
 use crate::models::{Game, GameMetadata, MetadataProgress};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
+
+/// Generation counter — incremented each time a new metadata fetch starts.
+/// Background tasks check this before processing each game and abort if a
+/// newer fetch has been started.
+pub static FETCH_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 use self::cache::ImageCache;
 use self::igdb::IgdbClient;
@@ -85,12 +91,18 @@ pub async fn fetch_metadata_batch(
     db: &Arc<Database>,
     games: Vec<Game>,
     clients: &MetadataClients,
+    generation: u64,
 ) -> Result<(), MetadataError> {
     let total = games.len() as u32;
     let mut fetched: u32 = 0;
     let mut last_emit = Instant::now();
 
     for game in &games {
+        // Abort if a newer fetch was started (e.g. after a factory reset).
+        if FETCH_GENERATION.load(Ordering::SeqCst) != generation {
+            return Ok(());
+        }
+
         // 1. Skip games that already have metadata.
         if game.metadata_source.is_some() {
             fetched += 1;

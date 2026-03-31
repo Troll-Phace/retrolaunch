@@ -1,11 +1,11 @@
-import { Routes, Route, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import { Home } from "@/pages/Home";
 import { SystemGrid } from "@/pages/SystemGrid";
 import { GameDetail } from "@/pages/GameDetail";
 import { Settings } from "@/pages/Settings";
-import { Onboarding } from "@/pages/Onboarding";
-import { useHydrateStore } from "@/store";
+import { Onboarding } from "@/pages/onboarding";
+import { useHydrateStore, useAppStore } from "@/store";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { ToastContainer } from "@/components/Toast";
@@ -86,6 +86,7 @@ function AppShell() {
 
 function App() {
   const hydrated = useHydrateStore();
+  const onboardingComplete = useAppStore((s) => s.onboardingComplete);
 
   if (!hydrated) {
     return null;
@@ -93,13 +94,24 @@ function App() {
 
   return (
     <Routes>
-      <Route element={<AppShell />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/system/:id" element={<SystemGrid />} />
-        <Route path="/game/:id" element={<GameDetail />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-      <Route path="/onboarding" element={<Onboarding />} />
+      {!onboardingComplete ? (
+        <>
+          <Route path="/onboarding" element={<Onboarding />} />
+          {/* Redirect ALL non-onboarding routes to /onboarding */}
+          <Route path="*" element={<Navigate to="/onboarding" replace />} />
+        </>
+      ) : (
+        <>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/system/:id" element={<SystemGrid />} />
+            <Route path="/game/:id" element={<GameDetail />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+          {/* Redirect /onboarding back to / when onboarding is complete */}
+          <Route path="/onboarding" element={<Navigate to="/" replace />} />
+        </>
+      )}
     </Routes>
   );
 }

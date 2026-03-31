@@ -105,3 +105,13 @@ pub async fn toggle_favorite(
 ) -> Result<bool, String> {
     db.toggle_favorite(game_id).map_err(|e| e.to_string())
 }
+
+/// Deletes games whose ROM path does not belong to any watched directory.
+///
+/// Returns the number of orphaned games that were removed.
+#[tauri::command]
+pub async fn cleanup_orphaned_games(
+    db: State<'_, Arc<Database>>,
+) -> Result<u32, String> {
+    db.cleanup_orphaned_games().map_err(|e| e.to_string())
+}

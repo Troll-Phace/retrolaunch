@@ -243,6 +243,9 @@ pub struct ClearCacheParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FetchMetadataParams {
     pub game_ids: Vec<i64>,
+    /// When true, re-fetch metadata even for games already marked as unmatched.
+    #[serde(default)]
+    pub force: bool,
 }
 
 /// Internal metadata retrieved from an API source (IGDB or ScreenScraper).

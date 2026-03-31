@@ -1,8 +1,38 @@
 /**
- * About panel — app info, version, and tech stack credits.
+ * About panel — app info, version, tech stack credits, and debug reset.
  */
 
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { resetToFresh } from "@/services/api";
+import { useAppStore } from "@/store";
+
 export function AboutPanel() {
+  const navigate = useNavigate();
+  const addToast = useAppStore((s) => s.addToast);
+
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  async function handleReset() {
+    setResetting(true);
+    setResetError(null);
+    try {
+      await resetToFresh();
+      useAppStore.getState().resetStore();
+      navigate("/");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "An unknown error occurred.";
+      setResetError(message);
+      addToast({ type: "error", message: `Reset failed: ${message}` });
+    } finally {
+      setResetting(false);
+    }
+  }
+
   return (
     <div className="p-6">
       <h2 className="text-xl font-bold text-text-primary">About</h2>
@@ -59,6 +89,78 @@ export function AboutPanel() {
           <p className="mt-6 text-xs text-text-dim">
             Made with care for the retro gaming community.
           </p>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Debug / Reset section                                               */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="mt-10">
+        <h3 className="text-lg font-bold text-text-primary">Debug</h3>
+        <p className="text-sm text-text-secondary mt-1">
+          Development and troubleshooting utilities.
+        </p>
+
+        <div className="mt-4 rounded-lg bg-surface border border-ghost p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-text-primary">
+                Start Fresh
+              </p>
+              <p className="text-xs text-text-secondary mt-1 leading-relaxed">
+                Purge all data and return to the onboarding wizard. This is
+                intended for debugging and testing.
+              </p>
+            </div>
+
+            {!showConfirm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirm(true);
+                  setResetError(null);
+                }}
+                className="shrink-0 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
+              >
+                Reset Everything
+              </button>
+            )}
+          </div>
+
+          {showConfirm && (
+            <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/5 p-4">
+              <p className="text-sm text-red-300 leading-relaxed">
+                Are you sure? This will delete all games, emulator configs,
+                cached images, and preferences. This action cannot be undone.
+              </p>
+
+              {resetError && (
+                <p className="mt-2 text-xs text-red-400">{resetError}</p>
+              )}
+
+              <div className="mt-3 flex gap-3">
+                <button
+                  type="button"
+                  disabled={resetting}
+                  onClick={handleReset}
+                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
+                >
+                  {resetting ? "Resetting..." : "Yes, delete everything"}
+                </button>
+                <button
+                  type="button"
+                  disabled={resetting}
+                  onClick={() => {
+                    setShowConfirm(false);
+                    setResetError(null);
+                  }}
+                  className="rounded-md border border-ghost px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:text-text-primary hover:border-text-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -88,16 +88,19 @@ pub fn run() {
             commands::scanner::get_watched_directories,
             commands::scanner::get_game_detail,
             commands::scanner::toggle_favorite,
+            commands::scanner::cleanup_orphaned_games,
             commands::launcher::get_emulator_configs,
             commands::launcher::set_emulator_config,
             commands::launcher::auto_detect_emulators,
             commands::launcher::launch_game,
             commands::launcher::get_play_stats,
             commands::metadata::fetch_metadata,
+            commands::metadata::get_games_needing_metadata_count,
             commands::metadata::get_cache_stats,
             commands::metadata::clear_cache,
             commands::config::get_preferences,
             commands::config::set_preference,
+            commands::config::reset_to_fresh,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

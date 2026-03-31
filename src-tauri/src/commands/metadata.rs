@@ -7,9 +7,9 @@
 
 use crate::db::Database;
 use crate::metadata::MetadataClients;
-use crate::models::{CacheStats, ClearCacheParams, FetchMetadataParams};
+use crate::models::{CacheStats, ClearCacheParams, FetchMetadataParams, MetadataProgress};
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 
 /// Fetches metadata for games from IGDB and ScreenScraper.
 ///
@@ -27,9 +27,19 @@ pub async fn fetch_metadata(
     clients: State<'_, Arc<MetadataClients>>,
 ) -> Result<(), String> {
     let games = if params.game_ids.is_empty() {
-        // Fetch all games that don't have metadata yet.
-        db.get_games_without_metadata(None)
-            .map_err(|e| e.to_string())?
+        if params.force {
+            // Force mode: re-fetch ALL games regardless of metadata status.
+            // First clear existing metadata_source so the batch processor
+            // doesn't skip them.
+            db.clear_all_metadata_source()
+                .map_err(|e| e.to_string())?;
+            db.get_games_without_metadata(None)
+                .map_err(|e| e.to_string())?
+        } else {
+            // Normal mode: only games that don't have metadata yet.
+            db.get_games_without_metadata(None)
+                .map_err(|e| e.to_string())?
+        }
     } else {
         // Fetch only the specified games.
         let mut games = Vec::with_capacity(params.game_ids.len());
@@ -42,8 +52,19 @@ pub async fn fetch_metadata(
     };
 
     if games.is_empty() {
+        let _ = app.emit("metadata-progress", &MetadataProgress {
+            fetched: 0,
+            total: 0,
+            current_game: String::new(),
+            source: None,
+        });
         return Ok(());
     }
+
+    // Increment generation so any previous background fetch aborts.
+    let generation = crate::metadata::FETCH_GENERATION
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        + 1;
 
     // Clone Arcs for the spawned task.
     let db = db.inner().clone();
@@ -51,7 +72,7 @@ pub async fn fetch_metadata(
 
     tokio::spawn(async move {
         if let Err(e) =
-            crate::metadata::fetch_metadata_batch(&app, &db, games, &clients).await
+            crate::metadata::fetch_metadata_batch(&app, &db, games, &clients, generation).await
         {
             eprintln!("Metadata fetch error: {}", e);
         }
@@ -68,6 +89,16 @@ pub async fn get_cache_stats(
     clients
         .image_cache
         .get_cache_stats()
+        .map_err(|e| e.to_string())
+}
+
+/// Returns the number of games that still need metadata enrichment.
+#[tauri::command]
+pub async fn get_games_needing_metadata_count(
+    db: State<'_, Arc<Database>>,
+) -> Result<u32, String> {
+    db.get_games_without_metadata(None)
+        .map(|games| games.len() as u32)
         .map_err(|e| e.to_string())
 }
 

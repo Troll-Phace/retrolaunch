@@ -48,10 +48,17 @@ interface AppState {
   dynamicColorPalette: DynamicColorPalette | null;
   setDynamicColorPalette: (palette: DynamicColorPalette | null) => void;
 
+  // Onboarding
+  onboardingComplete: boolean;
+  setOnboardingComplete: (complete: boolean) => void;
+
   // Toast notifications
   toasts: Toast[];
   addToast: (toast: Omit<Toast, 'id'>) => void;
   removeToast: (id: string) => void;
+
+  // Reset (factory reset — clears all in-memory state)
+  resetStore: () => void;
 
   // Hydration
   hydrated: boolean;
@@ -151,6 +158,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
     applyDynamicColors(palette);
   },
 
+  // -- Onboarding ------------------------------------------------------------
+  onboardingComplete: false,
+  setOnboardingComplete: (complete) => {
+    set({ onboardingComplete: complete });
+    setPreference('onboarding_complete', complete ? 'true' : 'false').catch(console.error);
+  },
+
   // -- Toast notifications ---------------------------------------------------
   toasts: [],
   addToast: (toast) => {
@@ -166,6 +180,24 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   removeToast: (id) => {
     set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+  },
+
+  // -- Reset (factory reset) ------------------------------------------------
+  resetStore: () => {
+    // Reset DOM to default theme and clear dynamic colors
+    document.documentElement.dataset.theme = 'dark';
+    applyDynamicColors(null);
+
+    set({
+      currentTheme: 'dark',
+      searchQuery: '',
+      activeFilters: { ...DEFAULT_FILTERS },
+      viewPreference: 'grid',
+      dynamicColorPalette: null,
+      onboardingComplete: false,
+      toasts: [],
+      hydrated: false,
+    });
   },
 
   // -- Hydration ------------------------------------------------------------
@@ -191,6 +223,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
           ? prefs.sort_order
           : DEFAULT_FILTERS.sortOrder;
 
+      const onboardingComplete = prefs.onboarding_complete === 'true';
+
       // Apply theme to DOM
       document.documentElement.dataset.theme = theme;
 
@@ -202,6 +236,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
           sortBy,
           sortOrder,
         },
+        onboardingComplete,
         hydrated: true,
       });
     } catch {

@@ -111,6 +111,11 @@ export async function fetchMetadata(params: FetchMetadataParams): Promise<void> 
   return invoke<void>('fetch_metadata', { params });
 }
 
+/** Returns the number of games that still need metadata enrichment. */
+export async function getGamesNeedingMetadataCount(): Promise<number> {
+  return invoke<number>('get_games_needing_metadata_count');
+}
+
 /** Returns statistics about the on-disk image cache (file counts and sizes). */
 export async function getCacheStats(): Promise<CacheStats> {
   return invoke<CacheStats>('get_cache_stats');
@@ -158,8 +163,25 @@ export async function toggleFavorite(gameId: number): Promise<boolean> {
 // File system helpers
 // ---------------------------------------------------------------------------
 
+/** Removes games whose ROM files no longer exist on disk. Returns count of deleted rows. */
+export async function cleanupOrphanedGames(): Promise<number> {
+  return invoke<number>('cleanup_orphaned_games');
+}
+
 /** Reveals the given path in the platform's file manager (Finder / Explorer). */
 export async function revealInFileManager(path: string): Promise<void> {
   const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
   return revealItemInDir(path);
+}
+
+// ---------------------------------------------------------------------------
+// Reset / Debug commands
+// ---------------------------------------------------------------------------
+
+/**
+ * Purges all application data (games, emulator configs, cached images,
+ * preferences) and returns the app to a fresh state ready for onboarding.
+ */
+export async function resetToFresh(): Promise<number> {
+  return invoke<number>('reset_to_fresh');
 }

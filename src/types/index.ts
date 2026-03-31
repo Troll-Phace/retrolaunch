@@ -249,6 +249,8 @@ export interface GameMetadata {
 /** Parameters for the `fetch_metadata` command. */
 export interface FetchMetadataParams {
   game_ids: number[];
+  /** When true, re-fetch metadata even for games already processed. */
+  force?: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -785,6 +785,23 @@ impl Database {
         Ok(())
     }
 
+    /// Clears `metadata_source` and `metadata_fetched_at` on all games,
+    /// forcing them back into the "needs metadata" state.
+    pub fn clear_all_metadata_source(&self) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        conn.execute(
+            "UPDATE games SET metadata_source = NULL, metadata_fetched_at = NULL, \
+             updated_at = datetime('now')",
+            [],
+        )?;
+
+        Ok(())
+    }
+
     /// Reads a single preference value by key.
     ///
     /// Returns `None` if the key is not present in the `preferences` table.
@@ -890,6 +907,110 @@ impl Database {
         )?;
 
         Ok(orphaned)
+    }
+
+    /// Deletes games whose `rom_path` does not belong to any currently watched
+    /// directory. If there are no watched directories at all, every game is
+    /// considered orphaned and is deleted.
+    ///
+    /// Returns the number of deleted game rows.
+    pub fn cleanup_orphaned_games(&self) -> Result<u32> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        // Collect all watched directory paths, normalized with a trailing separator.
+        let mut stmt = conn.prepare("SELECT path FROM watched_directories")?;
+        let dir_paths: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        if dir_paths.is_empty() {
+            // No watched directories — every game is orphaned.
+            conn.execute("DELETE FROM games", [])?;
+            return Ok(conn.changes() as u32);
+        }
+
+        // Build a WHERE clause that keeps games matching any watched directory.
+        // A game belongs to a directory when its rom_path starts with the
+        // directory path (with a trailing separator to avoid prefix collisions).
+        let conditions: Vec<String> = dir_paths
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("rom_path LIKE ?{}", i + 1))
+            .collect();
+        let where_clause = conditions.join(" OR ");
+        let sql = format!("DELETE FROM games WHERE NOT ({})", where_clause);
+
+        let params: Vec<String> = dir_paths
+            .iter()
+            .map(|p| {
+                let prefix = if p.ends_with('/') || p.ends_with('\\') {
+                    p.clone()
+                } else {
+                    format!("{}/", p)
+                };
+                // Escape LIKE wildcards in the path itself, then append %
+                let escaped = prefix.replace('%', "\\%").replace('_', "\\_");
+                format!("{}%", escaped)
+            })
+            .collect();
+
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
+
+        conn.execute(&sql, param_refs.as_slice())?;
+        Ok(conn.changes() as u32)
+    }
+
+    /// Deletes all user data while preserving the `systems` seed data.
+    ///
+    /// Runs the deletions inside a transaction so the database remains
+    /// consistent if any individual statement fails. Child rows
+    /// (play_sessions, game_emulator_overrides, screenshots) are removed
+    /// before their parent (games) to satisfy foreign key constraints.
+    pub fn reset_all_data(&self) -> Result<u32> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        // Use individual statements so any failure is immediately visible.
+        conn.execute("DELETE FROM play_sessions", [])
+            .context("Failed to delete play_sessions")?;
+        conn.execute("DELETE FROM game_emulator_overrides", [])
+            .context("Failed to delete game_emulator_overrides")?;
+        conn.execute("DELETE FROM screenshots", [])
+            .context("Failed to delete screenshots")?;
+        let games_deleted = conn
+            .execute("DELETE FROM games", [])
+            .context("Failed to delete games")? as u32;
+        conn.execute("DELETE FROM watched_directories", [])
+            .context("Failed to delete watched_directories")?;
+        conn.execute("DELETE FROM emulator_configs", [])
+            .context("Failed to delete emulator_configs")?;
+        conn.execute("DELETE FROM preferences", [])
+            .context("Failed to delete preferences")?;
+
+        // Rebuild FTS5 index from the now-empty games table.
+        conn.execute_batch("INSERT INTO games_fts(games_fts) VALUES('rebuild');")
+            .context("Failed to rebuild FTS5 index")?;
+
+        // Verify the reset actually worked.
+        let remaining: i64 = conn
+            .query_row("SELECT COUNT(*) FROM games", [], |row| row.get(0))
+            .context("Failed to verify reset")?;
+        if remaining > 0 {
+            anyhow::bail!(
+                "Reset verification failed: {} games still in database",
+                remaining
+            );
+        }
+
+        Ok(games_deleted)
     }
 }
 
