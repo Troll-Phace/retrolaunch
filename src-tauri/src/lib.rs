@@ -28,6 +28,9 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
+
+            #[cfg(desktop)]
+            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             let db = Arc::new(db::Database::new(&app_data_dir)?);
 
             // Clean up orphaned play sessions from previous app crashes.

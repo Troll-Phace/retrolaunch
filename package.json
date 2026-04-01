@@ -17,7 +17,9 @@
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-opener": "^2.5.3",
+    "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-sql": "^2.3.2",
+    "@tauri-apps/plugin-updater": "^2.10.0",
     "blurhash": "^2.0.5",
     "framer-motion": "^12.38.0",
     "node-vibrant": "^4.0.4",
@@ -40,10 +42,10 @@
     "@types/react-window": "^2.0.0",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.1",
+    "rollup-plugin-visualizer": "^5.14.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
-    "rollup-plugin-visualizer": "^5.14.0",
     "vitest": "^4.1.2"
   }
 }

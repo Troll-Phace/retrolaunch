@@ -13,6 +13,7 @@ import { Button } from "@/components/Button";
 import { ToastContainer } from "@/components/Toast";
 import { onNewRomDetected } from "@/services/events";
 import { fetchMetadata } from "@/services/api";
+import { checkForUpdateSilently } from "@/hooks/useUpdateChecker";
 
 function AppShell() {
   const location = useLocation();
@@ -43,6 +44,25 @@ function AppShell() {
     return () => {
       unlisten?.();
     };
+  }, []);
+
+  // Background update check on app launch
+  useEffect(() => {
+    checkForUpdateSilently().then((result) => {
+      if (result?.available && result.version) {
+        useAppStore.getState().addToast({
+          type: "info",
+          message: `Update available (v${result.version})`,
+          duration: 0,
+          action: {
+            label: "Update Now",
+            onClick: () => {
+              result.downloadAndInstall?.();
+            },
+          },
+        });
+      }
+    });
   }, []);
 
   return (

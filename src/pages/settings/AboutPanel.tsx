@@ -2,11 +2,13 @@
  * About panel — app info, version, tech stack credits, and debug reset.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getVersion } from "@tauri-apps/api/app";
 
 import { resetToFresh } from "@/services/api";
 import { useAppStore } from "@/store";
+import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 
 export function AboutPanel() {
   const navigate = useNavigate();
@@ -15,6 +17,22 @@ export function AboutPanel() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+
+  const [appVersion, setAppVersion] = useState("0.1.0");
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
+  }, []);
+
+  const {
+    checking,
+    updateAvailable,
+    updateVersion,
+    downloading,
+    downloadProgress,
+    error: updateError,
+    checkForUpdate,
+    downloadAndInstall,
+  } = useUpdateChecker();
 
   async function handleReset() {
     setResetting(true);
@@ -60,8 +78,53 @@ export function AboutPanel() {
             RetroLaunch
           </h3>
           <p className="mt-1 text-sm text-text-secondary">
-            Version <span className="font-mono text-text-primary">0.1.0</span>
+            Version <span className="font-mono text-text-primary">{appVersion}</span>
           </p>
+
+          {/* Update checker */}
+          <div className="mt-3">
+            {!updateAvailable && !checking && !downloading && (
+              <button
+                type="button"
+                onClick={() => checkForUpdate()}
+                className="text-xs text-accent hover:text-accent-light transition-colors"
+              >
+                Check for Updates
+              </button>
+            )}
+            {checking && (
+              <p className="text-xs text-text-secondary">Checking for updates...</p>
+            )}
+            {updateAvailable && !downloading && (
+              <div>
+                <p className="text-xs text-accent">Update available: v{updateVersion}</p>
+                <button
+                  type="button"
+                  onClick={downloadAndInstall}
+                  className="mt-1 rounded-md bg-accent/15 border border-accent/50 px-3 py-1 text-xs font-semibold text-accent transition-colors hover:bg-accent/25"
+                >
+                  Download &amp; Install
+                </button>
+              </div>
+            )}
+            {downloading && (
+              <div className="mt-1">
+                <p className="text-xs text-text-secondary">
+                  Downloading update... {downloadProgress}%
+                </p>
+                <div className="mt-1 h-1 w-32 mx-auto rounded-full bg-surface-hover overflow-hidden">
+                  <div
+                    className="h-full bg-accent rounded-full transition-all duration-300"
+                    style={{ width: `${downloadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {updateError && (
+              <p className="text-xs text-red-400 mt-1">{updateError}</p>
+            )}
+          </div>
+
           <p className="mt-4 text-sm text-text-secondary leading-relaxed">
             A visually stunning, platform-agnostic front-end launcher for retro
             game emulation. Scan your ROM library, fetch metadata, and launch
