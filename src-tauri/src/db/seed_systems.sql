@@ -9,4 +9,11 @@ INSERT OR IGNORE INTO systems (id, name, manufacturer, short_name, generation, e
 ('ps1', 'PlayStation', 'Sony', 'PS1', 5, '["bin","cue","chd","iso","pbp"]', -1, NULL, '#003087'),
 ('saturn', 'Sega Saturn', 'Sega', 'Saturn', 5, '["iso","bin","cue"]', -1, '53454741205345474153415455524E', '#ff6600'),
 ('neogeo', 'Neo Geo', 'SNK', 'Neo Geo', 4, '["zip"]', -1, NULL, '#c8102e'),
-('atari2600', 'Atari 2600', 'Atari', 'Atari 2600', 2, '["a26","bin"]', -1, NULL, '#8b6914');
+('atari2600', 'Atari 2600', 'Atari', 'Atari 2600', 2, '["a26","bin"]', -1, NULL, '#8b6914'),
+('ps2', 'PlayStation 2', 'Sony', 'PS2', 6, '["iso","bin","chd","cso","ciso"]', -1, NULL, '#003791'),
+('gamecube', 'Nintendo GameCube', 'Nintendo', 'GCN', 6, '["iso","gcm","ciso"]', 28, 'C2339F3D', '#6a0dad'),
+('nds', 'Nintendo DS', 'Nintendo', 'NDS', 7, '["nds","srl","dsi"]', -1, NULL, '#a0a0a0');
+
+-- Keep extensions up-to-date on existing databases (INSERT OR IGNORE skips existing rows).
+UPDATE systems SET extensions = '["iso","bin","chd","cso","ciso"]' WHERE id = 'ps2';
+UPDATE systems SET extensions = '["iso","gcm","ciso"]' WHERE id = 'gamecube';

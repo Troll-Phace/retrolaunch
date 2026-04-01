@@ -198,6 +198,9 @@ impl IgdbClient {
             "saturn" => Some(32),
             "neogeo" => Some(80),
             "atari2600" => Some(59),
+            "ps2" => Some(8),
+            "gamecube" => Some(21),
+            "nds" => Some(20),
             _ => None,
         }
     }

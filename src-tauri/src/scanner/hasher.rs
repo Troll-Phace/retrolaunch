@@ -11,6 +11,15 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
+/// Maximum file size (in bytes) for full-file hashing. Files larger than this
+/// threshold (e.g. PS1/PS2/Saturn/GameCube disc images) are only partially
+/// hashed using the first [`PARTIAL_HASH_SIZE`] bytes after the skip offset.
+/// This prevents the scanner from appearing hung on multi-gigabyte ISOs.
+const MAX_HASH_FILE_SIZE: u64 = 768 * 1024 * 1024; // 768 MiB
+
+/// Number of bytes to read when performing a partial hash on oversized files.
+const PARTIAL_HASH_SIZE: u64 = 1024 * 1024; // 1 MiB
+
 /// Hashes a single ROM file, stripping copier headers where applicable.
 ///
 /// The `system_id` determines which header-stripping logic to apply:
@@ -33,28 +42,15 @@ pub fn hash_rom(file_path: &Path, system_id: &str) -> Result<RomHashes> {
     file.seek(SeekFrom::Start(skip))
         .with_context(|| format!("Failed to seek past header in: {:?}", file_path))?;
 
-    let mut crc = crc32fast::Hasher::new();
-    let mut sha = <sha1::Sha1 as digest::Digest>::new();
-    let mut buf = [0u8; 65536];
+    // For files exceeding the size cap (large disc images), only hash a prefix
+    // to avoid blocking the scanner for minutes on multi-gigabyte ISOs.
+    let bytes_to_hash = if file_size > MAX_HASH_FILE_SIZE {
+        Some(PARTIAL_HASH_SIZE)
+    } else {
+        None
+    };
 
-    loop {
-        let n = file
-            .read(&mut buf)
-            .with_context(|| format!("Failed to read ROM data from: {:?}", file_path))?;
-        if n == 0 {
-            break;
-        }
-        crc.update(&buf[..n]);
-        digest::Digest::update(&mut sha, &buf[..n]);
-    }
-
-    let crc32_value = crc.finalize();
-    let sha1_bytes: [u8; 20] = digest::Digest::finalize(sha).into();
-
-    Ok(RomHashes {
-        crc32: format!("{:08x}", crc32_value),
-        sha1: Some(hex_encode(&sha1_bytes)),
-    })
+    hash_reader(&mut file, file_path, bytes_to_hash)
 }
 
 /// Hashes a ROM file without any header stripping.
@@ -66,28 +62,19 @@ pub fn hash_rom_full(file_path: &Path) -> Result<RomHashes> {
     let mut file = File::open(file_path)
         .with_context(|| format!("Failed to open ROM for full hashing: {:?}", file_path))?;
 
-    let mut crc = crc32fast::Hasher::new();
-    let mut sha = <sha1::Sha1 as digest::Digest>::new();
-    let mut buf = [0u8; 65536];
+    let file_size = file
+        .metadata()
+        .with_context(|| format!("Failed to read metadata for: {:?}", file_path))?
+        .len();
 
-    loop {
-        let n = file
-            .read(&mut buf)
-            .with_context(|| format!("Failed to read ROM data from: {:?}", file_path))?;
-        if n == 0 {
-            break;
-        }
-        crc.update(&buf[..n]);
-        digest::Digest::update(&mut sha, &buf[..n]);
-    }
+    // Guard against accidentally hashing multi-gigabyte disc images.
+    let bytes_to_hash = if file_size > MAX_HASH_FILE_SIZE {
+        Some(PARTIAL_HASH_SIZE)
+    } else {
+        None
+    };
 
-    let crc32_value = crc.finalize();
-    let sha1_bytes: [u8; 20] = digest::Digest::finalize(sha).into();
-
-    Ok(RomHashes {
-        crc32: format!("{:08x}", crc32_value),
-        sha1: Some(hex_encode(&sha1_bytes)),
-    })
+    hash_reader(&mut file, file_path, bytes_to_hash)
 }
 
 /// Hashes multiple ROM files in parallel using Rayon.
@@ -105,6 +92,47 @@ pub fn hash_roms_parallel(
             (path.clone(), result)
         })
         .collect()
+}
+
+/// Reads from `file` and computes CRC32 + SHA1 hashes.
+///
+/// If `limit` is `Some(n)`, only the first `n` bytes from the current file
+/// position are hashed (partial hash for oversized files). If `None`, the
+/// entire remaining content is hashed.
+fn hash_reader(file: &mut File, file_path: &Path, limit: Option<u64>) -> Result<RomHashes> {
+    let mut crc = crc32fast::Hasher::new();
+    let mut sha = <sha1::Sha1 as digest::Digest>::new();
+    let mut buf = [0u8; 65536];
+    let mut remaining = limit;
+
+    loop {
+        let max_read = match remaining {
+            Some(0) => break,
+            Some(r) => buf.len().min(r as usize),
+            None => buf.len(),
+        };
+
+        let n = file
+            .read(&mut buf[..max_read])
+            .with_context(|| format!("Failed to read ROM data from: {:?}", file_path))?;
+        if n == 0 {
+            break;
+        }
+        crc.update(&buf[..n]);
+        digest::Digest::update(&mut sha, &buf[..n]);
+
+        if let Some(ref mut r) = remaining {
+            *r -= n as u64;
+        }
+    }
+
+    let crc32_value = crc.finalize();
+    let sha1_bytes: [u8; 20] = digest::Digest::finalize(sha).into();
+
+    Ok(RomHashes {
+        crc32: format!("{:08x}", crc32_value),
+        sha1: Some(hex_encode(&sha1_bytes)),
+    })
 }
 
 /// Determines how many bytes to skip at the start of a ROM for hashing.
@@ -284,5 +312,50 @@ mod tests {
         for (_, res) in &results {
             assert!(res.is_ok(), "Expected Ok, got: {:?}", res);
         }
+    }
+
+    #[test]
+    fn test_size_cap_constants() {
+        // Verify the size cap is 768 MiB and partial hash size is 1 MiB.
+        assert_eq!(MAX_HASH_FILE_SIZE, 768 * 1024 * 1024);
+        assert_eq!(PARTIAL_HASH_SIZE, 1024 * 1024);
+        assert!(PARTIAL_HASH_SIZE < MAX_HASH_FILE_SIZE);
+    }
+
+    #[test]
+    fn test_hash_reader_with_limit() {
+        // Create a file with 2048 bytes, but only hash the first 1024.
+        let data: Vec<u8> = (0..2048).map(|i| (i % 256) as u8).collect();
+        let (_tmp, path) = create_temp_rom("limit_hash_", &data);
+
+        let mut file = File::open(&path).expect("open file");
+        let limited = hash_reader(&mut file, &path, Some(1024)).expect("hash_reader limited");
+
+        let mut file2 = File::open(&path).expect("open file");
+        let full = hash_reader(&mut file2, &path, None).expect("hash_reader full");
+
+        // The partial hash (first 1024 bytes) must differ from the full hash (2048 bytes).
+        assert_ne!(limited.crc32, full.crc32);
+
+        // The partial hash should match a manual CRC32 of just the first 1024 bytes.
+        let mut expected_crc = crc32fast::Hasher::new();
+        expected_crc.update(&data[..1024]);
+        let expected = format!("{:08x}", expected_crc.finalize());
+        assert_eq!(limited.crc32, expected);
+    }
+
+    #[test]
+    fn test_small_file_not_affected_by_cap() {
+        // A small file (well under 768 MiB) should produce the same hash
+        // regardless of the size cap existing.
+        let data = b"Small ROM content that should hash normally";
+        let (_tmp, path) = create_temp_rom("small_", data);
+
+        let result = hash_rom(&path, "ps2").expect("hash_rom for small ps2 file");
+
+        let mut expected_crc = crc32fast::Hasher::new();
+        expected_crc.update(data);
+        let expected = format!("{:08x}", expected_crc.finalize());
+        assert_eq!(result.crc32, expected);
     }
 }

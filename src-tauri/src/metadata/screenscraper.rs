@@ -341,6 +341,9 @@ impl ScreenScraperClient {
             "saturn" => Some("22"),
             "neogeo" => Some("142"),
             "atari2600" => Some("26"),
+            "ps2" => Some("58"),
+            "gamecube" => Some("13"),
+            "nds" => Some("15"),
             _ => None,
         }
     }

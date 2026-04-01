@@ -128,6 +128,9 @@
   --system-saturn: #ff6600;
   --system-neogeo: #c8102e;
   --system-atari2600: #8b6914;
+  --system-ps2: #003791;
+  --system-gamecube: #6a0dad;
+  --system-nds: #a0a0a0;
 }
 
 /* ===== Focus-visible baseline for accessibility ===== */

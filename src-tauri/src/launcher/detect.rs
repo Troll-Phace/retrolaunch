@@ -147,6 +147,39 @@ const KNOWN_EMULATORS: &[KnownEmulator] = &[
         system_ids: &["saturn"],
         default_args: "\"{rom}\"",
     },
+    // PS2
+    KnownEmulator {
+        name: "PCSX2",
+        search_names: &["PCSX2", "pcsx2", "PCSX2.app", "pcsx2-qt", "pcsx2-qt.exe", "pcsx2.exe"],
+        system_ids: &["ps2"],
+        default_args: "\"{rom}\"",
+    },
+    KnownEmulator {
+        name: "AetherSX2",
+        search_names: &["AetherSX2", "AetherSX2.app"],
+        system_ids: &["ps2"],
+        default_args: "\"{rom}\"",
+    },
+    // GameCube
+    KnownEmulator {
+        name: "Dolphin",
+        search_names: &["Dolphin", "dolphin-emu", "Dolphin.app", "Dolphin.exe"],
+        system_ids: &["gamecube"],
+        default_args: "--exec=\"{rom}\"",
+    },
+    // Nintendo DS
+    KnownEmulator {
+        name: "melonDS",
+        search_names: &["melonDS", "melonds", "melonDS.app", "melonDS.exe"],
+        system_ids: &["nds"],
+        default_args: "\"{rom}\"",
+    },
+    KnownEmulator {
+        name: "DeSmuME",
+        search_names: &["DeSmuME", "desmume", "DeSmuME.app", "DeSmuME.exe", "desmume.exe"],
+        system_ids: &["nds"],
+        default_args: "\"{rom}\"",
+    },
     // Multi-system
     KnownEmulator {
         name: "RetroArch",
@@ -157,8 +190,8 @@ const KNOWN_EMULATORS: &[KnownEmulator] = &[
             "retroarch.exe",
         ],
         system_ids: &[
-            "nes", "snes", "genesis", "n64", "gb", "gbc", "gba", "ps1", "saturn", "neogeo",
-            "atari2600",
+            "nes", "snes", "genesis", "n64", "gb", "gbc", "gba", "ps1", "ps2", "saturn",
+            "neogeo", "atari2600", "gamecube", "nds",
         ],
         default_args: "\"{rom}\"",
     },

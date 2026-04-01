@@ -1237,8 +1237,8 @@ mod tests {
         let db = Database::new_in_memory().unwrap();
         let systems = db.get_all_systems().unwrap();
 
-        // The seed data has 11 systems.
-        assert_eq!(systems.len(), 11);
+        // The seed data has 14 systems (original 11 + PS2, GameCube, NDS).
+        assert_eq!(systems.len(), 14);
 
         let nes = systems.iter().find(|s| s.id == "nes").unwrap();
         assert_eq!(nes.name, "Nintendo Entertainment System");
