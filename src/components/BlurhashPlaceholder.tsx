@@ -15,6 +15,9 @@ export interface BlurhashPlaceholderProps {
   objectFit?: "cover" | "contain";
 }
 
+// Module-level cache of successfully loaded image URLs
+const loadedImages = new Set<string>();
+
 const DECODE_WIDTH = 32;
 const DECODE_HEIGHT = 32;
 
@@ -28,7 +31,9 @@ export function BlurhashPlaceholder({
   objectFit = "cover",
 }: BlurhashPlaceholderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(() =>
+    src ? loadedImages.has(src) : false
+  );
   const [decodeFailed, setDecodeFailed] = useState(false);
 
   // Decode blurhash and paint to canvas
@@ -57,9 +62,9 @@ export function BlurhashPlaceholder({
     }
   }, [blurhash]);
 
-  // Reset loaded state when src changes
+  // Reset loaded state when src changes (check cache first)
   useEffect(() => {
-    setImageLoaded(false);
+    setImageLoaded(src ? loadedImages.has(src) : false);
   }, [src]);
 
   // Fallback: empty/invalid blurhash
@@ -97,8 +102,10 @@ export function BlurhashPlaceholder({
             objectFit === "contain" ? "object-contain" : "object-cover"
           }`}
           style={{ opacity: imageLoaded ? 1 : 0 }}
-          loading="lazy"
-          onLoad={() => setImageLoaded(true)}
+          onLoad={() => {
+            if (src) loadedImages.add(src);
+            setImageLoaded(true);
+          }}
           onError={() => setImageLoaded(false)}
         />
       )}
