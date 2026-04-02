@@ -45,7 +45,7 @@ export const GameCard = memo(function GameCard({ game, onClick, className = "", 
 
   return (
     <motion.div
-      className={`group cursor-pointer overflow-hidden rounded-xl border bg-surface transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-void ${
+      className={`group flex flex-col cursor-pointer overflow-hidden rounded-xl border bg-surface transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-void ${
         focused ? "ring-2 ring-accent/50 ring-offset-2 ring-offset-void border-accent/50" : isHovered ? "border-accent/50" : "border-ghost"
       } ${className}`}
       style={{
@@ -146,7 +146,7 @@ export const GameCard = memo(function GameCard({ game, onClick, className = "", 
       </motion.div>
 
       {/* Text info area */}
-      <div className="p-3">
+      <div className="p-3 mt-auto">
         <p className="line-clamp-2 text-xs font-semibold text-text-primary">
           {game.title}
         </p>

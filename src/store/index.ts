@@ -8,7 +8,7 @@
 
 import { useEffect } from 'react';
 import { create } from 'zustand';
-import type { GameSortField, SortOrder, ThemeName } from '@/types';
+import type { CardSize, GameSortField, SortOrder, ThemeName } from '@/types';
 import type { Toast } from '@/components/Toast';
 import { getPreferences, setPreference } from '@/services/api';
 
@@ -43,6 +43,10 @@ interface AppState {
   // View preference
   viewPreference: 'grid' | 'list';
   setViewPreference: (view: 'grid' | 'list') => void;
+
+  // Card size preference
+  cardSize: CardSize;
+  setCardSize: (size: CardSize) => void;
 
   // Dynamic color (set by game detail / hero banner)
   dynamicColorPalette: DynamicColorPalette | null;
@@ -105,6 +109,11 @@ function isSortOrder(value: string): value is SortOrder {
   return value === 'asc' || value === 'desc';
 }
 
+/** Type guard for valid CardSize values. */
+function isCardSize(value: string): value is CardSize {
+  return value === 'compact' || value === 'normal' || value === 'large';
+}
+
 /** Apply a dynamic color palette (or clear it) on the document root element. */
 function applyDynamicColors(palette: DynamicColorPalette | null): void {
   const root = document.documentElement;
@@ -155,6 +164,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
     setPreference('view_preference', view).catch(console.error);
   },
 
+  // -- Card size preference ---------------------------------------------------
+  cardSize: 'normal',
+  setCardSize: (size) => {
+    set({ cardSize: size });
+    setPreference('card_size', size).catch(console.error);
+  },
+
   // -- Dynamic color palette ------------------------------------------------
   dynamicColorPalette: null,
   setDynamicColorPalette: (palette) => {
@@ -203,6 +219,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       searchQuery: '',
       activeFilters: { ...DEFAULT_FILTERS },
       viewPreference: 'grid',
+      cardSize: 'normal',
       dynamicColorPalette: null,
       onboardingComplete: false,
       toasts: [],
@@ -224,6 +241,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const viewPreference: 'grid' | 'list' =
         prefs.view_preference === 'list' ? 'list' : 'grid';
 
+      const cardSize: CardSize =
+        prefs.card_size !== undefined && isCardSize(prefs.card_size)
+          ? prefs.card_size
+          : 'normal';
+
       const sortBy: GameSortField =
         prefs.sort_by !== undefined && isGameSortField(prefs.sort_by)
           ? prefs.sort_by
@@ -242,6 +264,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set({
         currentTheme: theme,
         viewPreference,
+        cardSize,
         activeFilters: {
           ...DEFAULT_FILTERS,
           sortBy,

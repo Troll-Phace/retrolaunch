@@ -70,7 +70,7 @@ export function HorizontalScrollRow({
           if (!child) return null;
           return (
             <motion.div
-              className="shrink-0 snap-start"
+              className="shrink-0 snap-start [&>*]:h-full"
               role="listitem"
               variants={shouldReduceMotion ? undefined : itemVariants}
             >

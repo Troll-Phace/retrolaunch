@@ -312,6 +312,9 @@ export type GameSortField = 'title' | 'date_added' | 'last_played' | 'playtime' 
 /** Sort direction. */
 export type SortOrder = 'asc' | 'desc';
 
+/** Card size preference for grid views. */
+export type CardSize = 'compact' | 'normal' | 'large';
+
 // ---------------------------------------------------------------------------
 // GitHub Releases
 // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import { SystemThemeHeader } from "@/components/SystemThemeHeader";
 import { GenreFilterBar } from "@/components/GenreFilterBar";
 import { SortDropdown } from "@/components/SortDropdown";
 import { ViewToggle } from "@/components/ViewToggle";
+import { CardSizeSlider } from "@/components/CardSizeSlider";
 import { VirtualizedGameGrid } from "@/components/VirtualizedGameGrid";
 import { EmptyState } from "@/components/EmptyState";
 import { SurpriseMeButton } from "@/components/SurpriseMeButton";
@@ -45,6 +46,9 @@ export function SystemGrid() {
   const setActiveFilters = useAppStore((s) => s.setActiveFilters);
   const [sortBy, setSortBy] = useState<GameSortField>(activeFilters.sortBy);
   const [sortOrder, setSortOrder] = useState<SortOrder>(activeFilters.sortOrder);
+
+  // ---- View preference (for conditional CardSizeSlider) -------------------
+  const viewPreference = useAppStore((s) => s.viewPreference);
 
   // ---- Search (from global store, debounced) ------------------------------
   const searchQuery = useAppStore((s) => s.searchQuery);
@@ -167,6 +171,7 @@ export function SystemGrid() {
           onSortChange={handleSortChange}
         />
         <ViewToggle />
+        {viewPreference === 'grid' && <CardSizeSlider />}
         <SurpriseMeButton
           onClick={() => setShowPicker(true)}
           disabled={games.length === 0}

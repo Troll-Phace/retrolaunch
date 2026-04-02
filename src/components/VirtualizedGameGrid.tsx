@@ -1,6 +1,7 @@
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { Grid, useGridRef } from "react-window";
-import type { Game } from "@/types";
+import type { CardSize, Game } from "@/types";
+import { useAppStore } from "@/store";
 import { GameCard } from "@/components/GameCard";
 import { EmptyState } from "@/components/EmptyState";
 import { useGridKeyboardNav } from "@/hooks/useGridKeyboardNav";
@@ -42,8 +43,13 @@ const FocusContext = createContext<FocusContextValue>({ focusedIndex: -1, isFocu
 
 const GAP_V = 16; // vertical gap between cards (space-4)
 const CARD_CONTENT_HEIGHT = 280; // approximate card height
-const ROW_HEIGHT = CARD_CONTENT_HEIGHT + GAP_V;
 const OVERSCAN = 2;
+
+const CARD_SIZE_CONFIG: Record<CardSize, { columnOffset: number; rowHeight: number }> = {
+  compact: { columnOffset: 2, rowHeight: 220 + GAP_V },
+  normal:  { columnOffset: 0, rowHeight: CARD_CONTENT_HEIGHT + GAP_V },
+  large:   { columnOffset: -2, rowHeight: 380 + GAP_V },
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -170,7 +176,14 @@ export function VirtualizedGameGrid({
     return () => observer.disconnect();
   }, []);
 
-  const columnCount = getColumnCount(containerWidth);
+  const cardSize = useAppStore((s) => s.cardSize);
+  const sizeConfig = CARD_SIZE_CONFIG[cardSize];
+
+  useEffect(() => {
+    gridRef.current?.scrollToCell({ rowIndex: 0, columnIndex: 0 });
+  }, [cardSize, gridRef]);
+
+  const columnCount = Math.max(2, getColumnCount(containerWidth) + sizeConfig.columnOffset);
 
   // Use a percentage-based column width so the Grid distributes space evenly.
   // This avoids needing to know the exact pixel width — the Grid auto-sizes.
@@ -246,7 +259,7 @@ export function VirtualizedGameGrid({
             columnCount={columnCount}
             columnWidth={columnWidthPercent}
             rowCount={rowCount}
-            rowHeight={ROW_HEIGHT}
+            rowHeight={sizeConfig.rowHeight}
             overscanCount={OVERSCAN}
             style={{ width: "100%", height: "100%" }}
           />
