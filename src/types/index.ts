@@ -311,3 +311,18 @@ export type GameSortField = 'title' | 'date_added' | 'last_played' | 'playtime' 
 
 /** Sort direction. */
 export type SortOrder = 'asc' | 'desc';
+
+// ---------------------------------------------------------------------------
+// GitHub Releases
+// ---------------------------------------------------------------------------
+
+/** A GitHub release entry used for the Patch Notes feature. */
+export interface GitHubRelease {
+  tag_name: string;
+  name: string | null;
+  body: string | null;
+  published_at: string | null;
+  html_url: string;
+  prerelease: boolean;
+  draft: boolean;
+}
