@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import type { Game, GameSortField, SortOrder, System } from "@/types";
-import { getGames, getSystems, scanDirectories } from "@/services/api";
+import { getGames, getSystems, launchGame, scanDirectories } from "@/services/api";
 import { useAppStore } from "@/store";
 import { useDebounce } from "@/hooks/useDebounce";
 import { SystemThemeHeader } from "@/components/SystemThemeHeader";
@@ -10,6 +11,8 @@ import { SortDropdown } from "@/components/SortDropdown";
 import { ViewToggle } from "@/components/ViewToggle";
 import { VirtualizedGameGrid } from "@/components/VirtualizedGameGrid";
 import { EmptyState } from "@/components/EmptyState";
+import { SurpriseMeButton } from "@/components/SurpriseMeButton";
+import { RandomGamePicker } from "@/components/RandomGamePicker";
 
 // ---------------------------------------------------------------------------
 // Default theme color when the system has none defined
@@ -32,6 +35,7 @@ export function SystemGrid() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
 
   // ---- Local filter state -------------------------------------------------
   const [genre, setGenre] = useState("All");
@@ -163,6 +167,10 @@ export function SystemGrid() {
           onSortChange={handleSortChange}
         />
         <ViewToggle />
+        <SurpriseMeButton
+          onClick={() => setShowPicker(true)}
+          disabled={games.length === 0}
+        />
       </div>
 
       {/* Game grid — fills remaining vertical space */}
@@ -199,6 +207,24 @@ export function SystemGrid() {
           />
         </div>
       )}
+
+      <AnimatePresence>
+        {showPicker && (
+          <RandomGamePicker
+            games={games}
+            systems={system ? [system] : []}
+            onClose={() => setShowPicker(false)}
+            onLaunch={(gameId) => {
+              setShowPicker(false);
+              launchGame(gameId).catch(console.error);
+            }}
+            onViewDetails={(gameId) => {
+              setShowPicker(false);
+              navigate(`/game/${gameId}`);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
