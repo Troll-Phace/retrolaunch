@@ -12,6 +12,7 @@ import { SortDropdown } from "@/components/SortDropdown";
 import { ViewToggle } from "@/components/ViewToggle";
 import { CardSizeSlider } from "@/components/CardSizeSlider";
 import { VirtualizedGameGrid } from "@/components/VirtualizedGameGrid";
+import { VirtualizedGameList } from "@/components/VirtualizedGameList";
 import { EmptyState } from "@/components/EmptyState";
 import { SurpriseMeButton } from "@/components/SurpriseMeButton";
 import { RandomGamePicker } from "@/components/RandomGamePicker";
@@ -210,11 +211,19 @@ export function SystemGrid() {
         </div>
       ) : (
         <div className="flex-1 min-h-0 px-6 pb-6">
-          <VirtualizedGameGrid
-            games={games}
-            onGameClick={handleGameClick}
-            onClearFilters={hasFilters ? handleClearFilters : undefined}
-          />
+          {viewPreference === 'grid' ? (
+            <VirtualizedGameGrid
+              games={games}
+              onGameClick={handleGameClick}
+              onClearFilters={hasFilters ? handleClearFilters : undefined}
+            />
+          ) : (
+            <VirtualizedGameList
+              games={games}
+              onGameClick={handleGameClick}
+              onClearFilters={hasFilters ? handleClearFilters : undefined}
+            />
+          )}
         </div>
       )}
 
