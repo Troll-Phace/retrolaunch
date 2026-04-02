@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import type { Game, PlayStats, System } from "@/types";
 import { getGames, getPlayStats, getSystems, launchGame, scanDirectories } from "@/services/api";
 import { useAppStore } from "@/store";
@@ -9,6 +10,8 @@ import { HorizontalScrollRow } from "@/components/HorizontalScrollRow";
 import { GameCard } from "@/components/GameCard";
 import { SystemCard } from "@/components/SystemCard";
 import { EmptyState } from "@/components/EmptyState";
+import { SurpriseMeButton } from "@/components/SurpriseMeButton";
+import { RandomGamePicker } from "@/components/RandomGamePicker";
 
 export function Home() {
   const navigate = useNavigate();
@@ -20,6 +23,7 @@ export function Home() {
   const [heroGameId, setHeroGameId] = useState<number | null>(null);
   const [heroStats, setHeroStats] = useState<PlayStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPicker, setShowPicker] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -138,6 +142,10 @@ export function Home() {
     <div className="p-6 space-y-8">
       <HeroBanner game={heroGame} playStats={heroStats} onPlay={handlePlay} />
 
+      <div className="flex justify-end -mt-4">
+        <SurpriseMeButton onClick={() => setShowPicker(true)} />
+      </div>
+
       {recentlyAdded.length > 0 && (
         <HorizontalScrollRow title="Recently Added">
           {recentlyAdded.map((game) => (
@@ -163,6 +171,24 @@ export function Home() {
           ))}
         </HorizontalScrollRow>
       )}
+
+      <AnimatePresence>
+        {showPicker && (
+          <RandomGamePicker
+            games={games}
+            systems={systems}
+            onClose={() => setShowPicker(false)}
+            onLaunch={(gameId) => {
+              setShowPicker(false);
+              handlePlay(gameId);
+            }}
+            onViewDetails={(gameId) => {
+              setShowPicker(false);
+              navigate(`/game/${gameId}`);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
