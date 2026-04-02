@@ -41,10 +41,12 @@ export function useUpdateChecker() {
   const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
 
   const checkForUpdate = useCallback(async (silent = false) => {
+    console.log('[updater] Checking for updates...');
     setState((prev) => ({ ...prev, checking: true, error: null }));
     try {
       const update = await check();
       if (update) {
+        console.log('[updater] Update available:', update.version);
         updateRef.current = update;
         setState((prev) => ({
           ...prev,
@@ -58,6 +60,7 @@ export function useUpdateChecker() {
       setState((prev) => ({ ...prev, checking: false, updateAvailable: false }));
       return false;
     } catch (err) {
+      console.error('[updater] Check failed:', err);
       if (!silent) {
         setState((prev) => ({
           ...prev,
@@ -76,12 +79,14 @@ export function useUpdateChecker() {
     if (!update) return;
 
     setState((prev) => ({ ...prev, downloading: true, downloadProgress: 0, error: null }));
+    console.log('[updater] Starting download and install...');
 
     try {
       let totalLength = 0;
       let downloaded = 0;
 
       await update.downloadAndInstall((event) => {
+        console.log('[updater] Event:', event.event, event.data);
         if (event.event === 'Started' && event.data.contentLength) {
           totalLength = event.data.contentLength;
         } else if (event.event === 'Progress') {
@@ -99,10 +104,20 @@ export function useUpdateChecker() {
 
       await relaunch();
     } catch (err) {
+      console.error('[updater] Download/install failed:', err);
+      console.error('[updater] Error type:', typeof err, 'Is Error:', err instanceof Error);
+      if (err instanceof Error) {
+        console.error('[updater] Error stack:', err.stack);
+      }
+      const errorMessage = err instanceof Error
+        ? err.message
+        : typeof err === 'string'
+          ? err
+          : JSON.stringify(err);
       setState((prev) => ({
         ...prev,
         downloading: false,
-        error: err instanceof Error ? err.message : 'Update failed',
+        error: `Update failed: ${errorMessage}`,
       }));
     }
   }, []);
@@ -123,6 +138,7 @@ export async function checkForUpdateSilently(): Promise<{
   version?: string;
   downloadAndInstall?: () => Promise<void>;
 } | null> {
+  console.log('[updater] Silent check...');
   try {
     const update = await check();
     if (update) {
@@ -136,7 +152,8 @@ export async function checkForUpdateSilently(): Promise<{
       };
     }
     return { available: false };
-  } catch {
+  } catch (err) {
+    console.error('[updater] Silent check failed:', err);
     return null; // silently fail
   }
 }
