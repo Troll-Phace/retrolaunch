@@ -86,7 +86,7 @@ export function useUpdateChecker() {
       let downloaded = 0;
 
       await update.downloadAndInstall((event) => {
-        console.log('[updater] Event:', event.event, event.data);
+        console.log('[updater] Event:', event.event, 'data' in event ? event.data : '');
         if (event.event === 'Started' && event.data.contentLength) {
           totalLength = event.data.contentLength;
         } else if (event.event === 'Progress') {
