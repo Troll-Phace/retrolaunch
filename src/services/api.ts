@@ -22,6 +22,7 @@ import type {
   ScanComplete,
   System,
   WatchedDirectory,
+  GitHubRelease,
   WatcherStatus,
 } from '@/types';
 
@@ -229,4 +230,13 @@ export async function getWatcherStatus(): Promise<WatcherStatus> {
  */
 export async function resetToFresh(): Promise<number> {
   return invoke<number>('reset_to_fresh');
+}
+
+// ---------------------------------------------------------------------------
+// GitHub Release commands
+// ---------------------------------------------------------------------------
+
+/** Fetches GitHub releases for the Patch Notes feature. */
+export async function fetchGitHubReleases(): Promise<GitHubRelease[]> {
+  return invoke<GitHubRelease[]>('fetch_github_releases');
 }

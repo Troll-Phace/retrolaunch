@@ -1,6 +1,6 @@
 {
   "name": "retrolaunch",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "A visually stunning retro game launcher",
   "scripts": {
@@ -25,8 +25,10 @@
     "node-vibrant": "^4.0.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.2",
     "react-window": "^2.2.7",
+    "remark-gfm": "^4.0.1",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

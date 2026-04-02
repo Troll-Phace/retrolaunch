@@ -269,6 +269,18 @@ pub struct DatFile {
     pub imported_at: String,
 }
 
+/// A GitHub release entry, used to display patch notes in the About panel.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubRelease {
+    pub tag_name: String,
+    pub name: Option<String>,
+    pub body: Option<String>,
+    pub published_at: Option<String>,
+    pub html_url: String,
+    pub prerelease: bool,
+    pub draft: bool,
+}
+
 /// Internal metadata retrieved from an API source (IGDB or ScreenScraper).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameMetadata {

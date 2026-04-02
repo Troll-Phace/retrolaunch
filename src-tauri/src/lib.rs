@@ -136,6 +136,7 @@ pub fn run() {
             commands::config::get_preferences,
             commands::config::set_preference,
             commands::config::reset_to_fresh,
+            commands::config::fetch_github_releases,
             commands::scanner::import_dat_file,
             commands::scanner::get_dat_files,
             commands::scanner::remove_dat_file,

@@ -9,6 +9,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { resetToFresh } from "@/services/api";
 import { useAppStore } from "@/store";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
+import { PatchNotes } from "./PatchNotes";
 
 export function AboutPanel() {
   const navigate = useNavigate();
@@ -153,6 +154,13 @@ export function AboutPanel() {
             Made with care for the retro gaming community.
           </p>
         </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Patch Notes section                                                 */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="mt-10">
+        <PatchNotes />
       </div>
 
       {/* ------------------------------------------------------------------ */}
