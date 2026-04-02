@@ -128,6 +128,48 @@ impl Database {
         Ok(exists)
     }
 
+    /// Deletes a game by its ROM file path, including its FTS index entry.
+    ///
+    /// Foreign-key cascades handle child rows (play_sessions,
+    /// game_emulator_overrides, screenshots). Returns `true` if a row was
+    /// deleted, `false` if the path was not found.
+    pub fn delete_game_by_path(&self, rom_path: &str) -> Result<bool> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        // Read the FTS-indexed values so we can issue the FTS delete command.
+        type FtsRow = (i64, String, Option<String>, Option<String>, Option<String>, Option<String>);
+        let old_values: Option<FtsRow> = conn
+            .query_row(
+                "SELECT id, title, developer, publisher, description, genre \
+                 FROM games WHERE rom_path = ?1",
+                rusqlite::params![rom_path],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            )
+            .optional()?;
+
+        if let Some((row_id, title, dev, pub_, desc, genre)) = old_values {
+            // Remove from the FTS index first (external content table).
+            conn.execute(
+                "INSERT INTO games_fts(games_fts, rowid, title, developer, publisher, description, genre) \
+                 VALUES('delete', ?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![row_id, title, dev, pub_, desc, genre],
+            )?;
+
+            // Delete the game row; cascades handle child tables.
+            conn.execute(
+                "DELETE FROM games WHERE rom_path = ?1",
+                rusqlite::params![rom_path],
+            )?;
+
+            Ok(conn.changes() > 0)
+        } else {
+            Ok(false)
+        }
+    }
+
     /// Returns the stored `file_last_modified` value for a ROM path, or `None`
     /// if the path is not in the database.
     pub fn get_file_last_modified(&self, rom_path: &str) -> Result<Option<String>> {
@@ -355,6 +397,38 @@ impl Database {
         )?;
 
         Ok(count)
+    }
+
+    /// Returns all `rom_path` values for games whose path falls under the given
+    /// directory. Used by the scanner to detect files that have been removed
+    /// since the last scan.
+    pub fn get_rom_paths_in_directory(&self, dir_path: &str) -> Result<Vec<String>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        let prefix = if dir_path.ends_with('/') || dir_path.ends_with('\\') {
+            dir_path.to_string()
+        } else {
+            format!("{}/", dir_path)
+        };
+
+        let escaped = prefix
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
+
+        let mut stmt = conn.prepare(
+            "SELECT rom_path FROM games WHERE rom_path LIKE ?1 ESCAPE '\\'",
+        )?;
+        let paths = stmt
+            .query_map(rusqlite::params![format!("{}%", escaped)], |row| {
+                row.get::<_, String>(0)
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(paths)
     }
 
     // ── Emulator configuration methods ──────────────────────────────────

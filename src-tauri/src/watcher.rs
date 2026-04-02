@@ -226,6 +226,17 @@ impl FsWatcher {
 
 /// Background task that receives file system events, debounces them, and
 /// processes new ROM files through the identification pipeline.
+///
+/// Debouncing strategy: all event paths are collected into a map with their
+/// last-seen timestamp. Every 500ms, paths that have "settled" (no new events
+/// for 500ms) are processed. At processing time we check whether the file
+/// exists on disk to determine the action:
+///   - File exists → treat as new/modified ROM (process through scanner)
+///   - File missing → treat as deletion (remove from DB if tracked)
+///
+/// This approach handles macOS FSEvents rename behavior correctly: a rename
+/// fires `Modify(Name(Any))` for both old and new paths. After settling, the
+/// old path no longer exists (→ removal) and the new path does (→ addition).
 async fn process_events(
     app: AppHandle,
     db: Arc<Database>,
@@ -233,10 +244,12 @@ async fn process_events(
     mut event_rx: tokio::sync::mpsc::UnboundedReceiver<Event>,
     mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
 ) {
-    // Debounce map: path -> last seen time. Paths seen within the last 2
-    // seconds are skipped to avoid processing the same file multiple times
-    // when the OS emits redundant create/modify events.
     let mut debounce: HashMap<PathBuf, Instant> = HashMap::new();
+
+    // Ticker for processing settled paths. Fires every 250ms to check
+    // whether any debounced paths are ready.
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(250));
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
         tokio::select! {
@@ -246,91 +259,123 @@ async fn process_events(
             event = event_rx.recv() => {
                 let event = match event {
                     Some(e) => e,
-                    None => break, // Channel closed
+                    None => break,
                 };
 
-                // Only process file creation and data modification events.
-                let is_relevant = matches!(
+                eprintln!("Watcher event: {:?} - {:?}", event.kind, event.paths);
+
+                // Only care about create, modify, and remove events.
+                let dominated = matches!(
                     event.kind,
-                    EventKind::Create(_) | EventKind::Modify(notify::event::ModifyKind::Data(_))
+                    EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
                 );
-                if !is_relevant {
+                if !dominated {
                     continue;
                 }
 
                 for path in event.paths {
-                    // Skip directories.
-                    if path.is_dir() {
+                    debounce.insert(path, Instant::now());
+                }
+            }
+            _ = tick.tick() => {
+                // Process paths that have settled (no new event for 500ms).
+                let now = Instant::now();
+                let settled: Vec<PathBuf> = debounce
+                    .iter()
+                    .filter(|(_, last)| now.duration_since(**last).as_millis() >= 500)
+                    .map(|(p, _)| p.clone())
+                    .collect();
+
+                for path in &settled {
+                    debounce.remove(path);
+                }
+
+                for path in settled {
+                    let exists = path.exists();
+                    let is_dir = exists && path.is_dir();
+
+                    if is_dir {
+                        // Directory-level events are not actionable.
                         continue;
                     }
 
-                    // Debounce: skip if we saw this path within the last 2 seconds.
-                    let now = Instant::now();
-                    if let Some(last) = debounce.get(&path) {
-                        if now.duration_since(*last).as_secs() < 2 {
-                            continue;
-                        }
-                    }
-                    debounce.insert(path.clone(), now);
+                    if !exists {
+                        // File no longer on disk — remove from DB if tracked.
+                        let db_clone = db.clone();
+                        let app_clone = app.clone();
+                        let file_path = path.clone();
 
-                    // Process the file on a blocking thread since hashing is CPU-bound.
-                    let db_clone = db.clone();
-                    let app_clone = app.clone();
-                    let nointro_clone = nointro.clone();
-                    let file_path = path.clone();
-
-                    tokio::task::spawn_blocking(move || {
-                        let nointro_db = nointro_clone
-                            .read()
-                            .map(|g| g.clone())
-                            .unwrap_or_else(|_| NoIntroDatabase::new());
-
-                        match scanner::process_single_file(&file_path, &db_clone, &nointro_db) {
-                            Ok(Some(game)) => {
-                                eprintln!(
-                                    "Watcher: new ROM detected - {} ({})",
-                                    game.title, game.system_id
-                                );
-
-                                // Update the game count for the watched directory
-                                // that contains this file. We check all watched
-                                // directories because the file may be in a
-                                // subdirectory of the watched root.
-                                if let Ok(dirs) = db_clone.get_watched_directories() {
-                                    let file_str = file_path.to_string_lossy();
-                                    for dir in &dirs {
-                                        let prefix = if dir.path.ends_with('/') || dir.path.ends_with('\\') {
-                                            dir.path.clone()
-                                        } else {
-                                            format!("{}/", dir.path)
-                                        };
-                                        if file_str.starts_with(&prefix) {
-                                            if let Ok(count) = db_clone.count_games_in_directory(&dir.path) {
-                                                let _ = db_clone.update_watched_directory(&dir.path, count as i32);
-                                            }
-                                            break;
-                                        }
-                                    }
+                        tokio::task::spawn_blocking(move || {
+                            let rom_path = file_path.to_string_lossy().to_string();
+                            match db_clone.delete_game_by_path(&rom_path) {
+                                Ok(true) => {
+                                    eprintln!("Watcher: ROM removed - {}", rom_path);
+                                    update_dir_game_count(&db_clone, &rom_path);
+                                    let _ = app_clone.emit("rom-removed", &rom_path);
                                 }
+                                Ok(false) => {
+                                    // Not in DB — old side of a rename or non-ROM file.
+                                }
+                                Err(e) => {
+                                    eprintln!("Watcher: error removing {:?}: {}", file_path, e);
+                                }
+                            }
+                        });
+                    } else {
+                        // File exists — process as new or modified ROM.
+                        let db_clone = db.clone();
+                        let app_clone = app.clone();
+                        let nointro_clone = nointro.clone();
+                        let file_path = path.clone();
 
-                                let _ = app_clone.emit("new-rom-detected", &game);
+                        tokio::task::spawn_blocking(move || {
+                            let nointro_db = nointro_clone
+                                .read()
+                                .map(|g| g.clone())
+                                .unwrap_or_else(|_| NoIntroDatabase::new());
+
+                            match scanner::process_single_file(&file_path, &db_clone, &nointro_db) {
+                                Ok(Some(game)) => {
+                                    eprintln!(
+                                        "Watcher: new ROM detected - {} ({})",
+                                        game.title, game.system_id
+                                    );
+                                    let rom_path = file_path.to_string_lossy().to_string();
+                                    update_dir_game_count(&db_clone, &rom_path);
+                                    let _ = app_clone.emit("new-rom-detected", &game);
+                                }
+                                Ok(None) => {
+                                    // Not a ROM, already exists, or unrecognized.
+                                }
+                                Err(e) => {
+                                    eprintln!("Watcher: error processing {:?}: {}", file_path, e);
+                                }
                             }
-                            Ok(None) => {
-                                // File is not a ROM, already exists, or unrecognized.
-                            }
-                            Err(e) => {
-                                eprintln!(
-                                    "Watcher: error processing {:?}: {}",
-                                    file_path, e
-                                );
-                            }
-                        }
-                    });
+                        });
+                    }
                 }
 
-                // Periodically clean up old debounce entries to prevent unbounded growth.
-                let now = Instant::now();
-                debounce.retain(|_, last| now.duration_since(*last).as_secs() < 10);
+                // Clean up stale debounce entries (shouldn't happen, but safety net).
+                debounce.retain(|_, last| now.duration_since(*last).as_secs() < 30);
+            }
+        }
+    }
+}
+
+/// Updates the game count for the watched directory that contains the given ROM path.
+fn update_dir_game_count(db: &Database, rom_path: &str) {
+    if let Ok(dirs) = db.get_watched_directories() {
+        for dir in &dirs {
+            let prefix = if dir.path.ends_with('/') || dir.path.ends_with('\\') {
+                dir.path.clone()
+            } else {
+                format!("{}/", dir.path)
+            };
+            if rom_path.starts_with(&prefix) {
+                if let Ok(count) = db.count_games_in_directory(&dir.path) {
+                    let _ = db.update_watched_directory(&dir.path, count as i32);
+                }
+                break;
             }
         }
     }

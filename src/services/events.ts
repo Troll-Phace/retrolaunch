@@ -89,3 +89,18 @@ export function onNewRomDetected(
     callback(event.payload),
   );
 }
+
+/**
+ * Subscribes to ROM removal events from the file system watcher.
+ *
+ * Emitted when the file watcher detects that a tracked ROM file has been
+ * deleted or renamed. The payload is the `rom_path` string of the removed game.
+ * Event name: `rom-removed`
+ */
+export function onRomRemoved(
+  callback: (payload: string) => void,
+): Promise<UnlistenFn> {
+  return getCurrentWindow().listen<string>('rom-removed', (event) =>
+    callback(event.payload),
+  );
+}

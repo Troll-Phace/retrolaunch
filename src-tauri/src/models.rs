@@ -87,6 +87,7 @@ pub struct ScanProgress {
 pub struct ScanComplete {
     pub total_games: u32,
     pub new_games: u32,
+    pub removed_games: u32,
     pub total_systems: u32,
     pub duration_ms: u64,
 }

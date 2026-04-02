@@ -103,6 +103,7 @@ export interface ScanProgress {
 export interface ScanComplete {
   total_games: number;
   new_games: number;
+  removed_games: number;
   total_systems: number;
   duration_ms: number;
 }

@@ -46,6 +46,9 @@ export function SystemGrid() {
   const searchQuery = useAppStore((s) => s.searchQuery);
   const debouncedSearch = useDebounce(searchQuery, 300);
 
+  // ---- Data version (triggers refetch when watcher detects changes) ------
+  const dataVersion = useAppStore((s) => s.dataVersion);
+
   // ---- Fetch system info --------------------------------------------------
   useEffect(() => {
     if (!id) return;
@@ -86,7 +89,7 @@ export function SystemGrid() {
         setError(message);
         setLoading(false);
       });
-  }, [id, genre, sortBy, sortOrder, debouncedSearch]);
+  }, [id, genre, sortBy, sortOrder, debouncedSearch, dataVersion]);
 
   // ---- Sort change handler (persists to Zustand) --------------------------
   const handleSortChange = useCallback(

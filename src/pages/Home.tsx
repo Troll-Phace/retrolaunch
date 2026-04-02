@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import type { Game, PlayStats, System } from "@/types";
 import { getGames, getPlayStats, getSystems, launchGame, scanDirectories } from "@/services/api";
+import { useAppStore } from "@/store";
 import { useDynamicColor } from "@/hooks/useDynamicColor";
 import { HeroBanner } from "@/components/HeroBanner";
 import { HorizontalScrollRow } from "@/components/HorizontalScrollRow";
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/EmptyState";
 export function Home() {
   const navigate = useNavigate();
   const location = useLocation();
+  const dataVersion = useAppStore((s) => s.dataVersion);
 
   const [games, setGames] = useState<Game[]>([]);
   const [systems, setSystems] = useState<System[]>([]);
@@ -52,7 +54,7 @@ export function Home() {
   // Re-fetch data whenever the user navigates (back) to the home page
   useEffect(() => {
     loadData();
-  }, [loadData, location.key]);
+  }, [loadData, location.key, dataVersion]);
 
   // Look up hero game from the authoritative ID set during data load
   const heroGame = useMemo(() => {

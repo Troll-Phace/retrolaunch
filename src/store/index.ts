@@ -57,6 +57,10 @@ interface AppState {
   addToast: (toast: Omit<Toast, 'id'>) => void;
   removeToast: (id: string) => void;
 
+  // Data version — incremented when the file system watcher detects changes
+  dataVersion: number;
+  incrementDataVersion: () => void;
+
   // Reset (factory reset — clears all in-memory state)
   resetStore: () => void;
 
@@ -182,6 +186,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
   },
 
+  // -- Data version (file system watcher invalidation) ----------------------
+  dataVersion: 0,
+  incrementDataVersion: () => {
+    set((state) => ({ dataVersion: state.dataVersion + 1 }));
+  },
+
   // -- Reset (factory reset) ------------------------------------------------
   resetStore: () => {
     // Reset DOM to default theme and clear dynamic colors
@@ -196,6 +206,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       dynamicColorPalette: null,
       onboardingComplete: false,
       toasts: [],
+      dataVersion: 0,
       hydrated: false,
     });
   },

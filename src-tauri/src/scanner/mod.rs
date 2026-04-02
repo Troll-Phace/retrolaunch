@@ -52,7 +52,31 @@ pub fn run_scan(
     // 3. Walk directories to discover candidate ROM files.
     let discovered = walker::walk_directories(&directories, &known_extensions)?;
 
-    // 4. Filter for incremental scanning — skip files unchanged since last scan.
+    // 4. Prune missing files — delete DB entries whose ROM no longer exists on
+    //    disk within the scanned directories. This handles renamed and deleted
+    //    files without breaking incremental scanning (only entries under the
+    //    directories being scanned are considered).
+    let discovered_paths: HashSet<String> = discovered
+        .iter()
+        .map(|f| f.path.to_string_lossy().to_string())
+        .collect();
+
+    let mut removed_games: u32 = 0;
+    for dir in &directories {
+        let dir_str = dir.to_string_lossy().to_string();
+        if let Ok(db_paths) = db.get_rom_paths_in_directory(&dir_str) {
+            for db_path in db_paths {
+                if !discovered_paths.contains(&db_path) {
+                    if let Ok(true) = db.delete_game_by_path(&db_path) {
+                        removed_games += 1;
+                        eprintln!("Pruned missing ROM: {}", db_path);
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Filter for incremental scanning — skip files unchanged since last scan.
     let mut files_to_process = Vec::new();
     for file in &discovered {
         let rom_path = file.path.to_string_lossy().to_string();
@@ -191,6 +215,7 @@ pub fn run_scan(
     let complete = ScanComplete {
         total_games: total,
         new_games,
+        removed_games,
         total_systems: systems_found.len() as u32,
         duration_ms: start_time.elapsed().as_millis() as u64,
     };

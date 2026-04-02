@@ -11,7 +11,7 @@ import { useHydrateStore, useAppStore } from "@/store";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { ToastContainer } from "@/components/Toast";
-import { onNewRomDetected } from "@/services/events";
+import { onNewRomDetected, onRomRemoved } from "@/services/events";
 import { fetchMetadata } from "@/services/api";
 import { checkForUpdateSilently } from "@/hooks/useUpdateChecker";
 
@@ -22,27 +22,45 @@ function AppShell() {
 
   const transitionDuration = shouldReduceMotion ? 0 : 0.25;
 
-  // Listen for new ROM detections from the file system watcher
+  // Listen for file system watcher events (new ROM detected / ROM removed).
+  // The `cancelled` flag handles React StrictMode's double-mount: if cleanup
+  // runs before the async `.then()` resolves, the stale listener is unsubscribed
+  // immediately once the promise settles.
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    let unlistenNew: (() => void) | undefined;
+    let unlistenRemoved: (() => void) | undefined;
 
     onNewRomDetected((game) => {
-      // Show toast
-      useAppStore.getState().addToast({
+      const store = useAppStore.getState();
+      store.addToast({
         type: "success",
         message: `New game detected: ${game.title}`,
       });
+      store.incrementDataVersion();
 
-      // Trigger background metadata fetch
       fetchMetadata({ game_ids: [game.id], force: false }).catch((err) =>
         console.error("Failed to fetch metadata for new game:", err)
       );
     }).then((fn) => {
-      unlisten = fn;
+      if (cancelled) { fn(); } else { unlistenNew = fn; }
+    });
+
+    onRomRemoved(() => {
+      const store = useAppStore.getState();
+      store.addToast({
+        type: "info",
+        message: "Game removed from library",
+      });
+      store.incrementDataVersion();
+    }).then((fn) => {
+      if (cancelled) { fn(); } else { unlistenRemoved = fn; }
     });
 
     return () => {
-      unlisten?.();
+      cancelled = true;
+      unlistenNew?.();
+      unlistenRemoved?.();
     };
   }, []);
 
