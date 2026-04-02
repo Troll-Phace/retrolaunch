@@ -4,6 +4,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Game } from "@/types";
 import { Badge } from "@/components/Badge";
 import { BlurhashPlaceholder } from "@/components/BlurhashPlaceholder";
+import { STATUS_CONFIG } from "@/constants/gameStatus";
 
 export interface GameCardProps {
   game: Game;
@@ -151,8 +152,15 @@ export const GameCard = memo(function GameCard({ game, onClick, className = "", 
           {game.title}
         </p>
 
-        <div className="mt-1.5">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <Badge label={game.system_id} variant="system" />
+          {game.status !== '' && (
+            <Badge
+              label={STATUS_CONFIG[game.status].label}
+              variant="status"
+              color={STATUS_CONFIG[game.status].color}
+            />
+          )}
         </div>
 
         {subtitle && (

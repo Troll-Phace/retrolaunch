@@ -9,9 +9,19 @@ use anyhow::Result;
 use rusqlite::params_from_iter;
 use rusqlite::OptionalExtension;
 
+/// Canonical column list for game queries. Used instead of `SELECT g.*` to ensure
+/// consistent column ordering regardless of whether the database was freshly created
+/// or migrated (ALTER TABLE ADD COLUMN appends to end).
+pub(crate) const GAME_COLUMNS: &str = "g.id, g.title, g.system_id, g.rom_path, \
+    g.rom_hash_crc32, g.rom_hash_sha1, g.file_size_bytes, g.file_last_modified, \
+    g.nointro_name, g.region, g.igdb_id, g.developer, g.publisher, g.release_date, \
+    g.genre, g.description, g.cover_path, g.blurhash, g.total_playtime_seconds, \
+    g.last_played_at, g.currently_playing, g.is_favorite, g.status, g.date_added, \
+    g.metadata_source, g.metadata_fetched_at, g.created_at, g.updated_at";
+
 /// Converts a rusqlite `Row` into a `Game` struct.
 ///
-/// Reads columns by index in the order they appear in `SELECT g.* FROM games g`.
+/// Reads columns by index in the order defined by `GAME_COLUMNS`.
 /// Boolean fields (`currently_playing`, `is_favorite`) are stored as integers
 /// in SQLite and converted here.
 pub(crate) fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<Game> {
@@ -38,11 +48,12 @@ pub(crate) fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<Game> {
         last_played_at: row.get(19)?,
         currently_playing: row.get::<_, i32>(20)? != 0,
         is_favorite: row.get::<_, i32>(21)? != 0,
-        date_added: row.get(22)?,
-        metadata_source: row.get(23)?,
-        metadata_fetched_at: row.get(24)?,
-        created_at: row.get(25)?,
-        updated_at: row.get(26)?,
+        status: row.get(22)?,
+        date_added: row.get(23)?,
+        metadata_source: row.get(24)?,
+        metadata_fetched_at: row.get(25)?,
+        created_at: row.get(26)?,
+        updated_at: row.get(27)?,
     })
 }
 
@@ -59,7 +70,7 @@ impl Database {
             .lock()
             .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
 
-        let mut sql = String::from("SELECT g.* FROM games g");
+        let mut sql = format!("SELECT {} FROM games g", GAME_COLUMNS);
         let mut conditions: Vec<String> = Vec::new();
         let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
         let mut param_index: usize = 1;
@@ -98,6 +109,15 @@ impl Database {
                     .replace('%', "\\%")
                     .replace('_', "\\_");
                 bind_values.push(Box::new(format!("%{}%", escaped)));
+                param_index += 1;
+            }
+        }
+
+        // Status filter
+        if let Some(ref status) = params.status {
+            if !status.is_empty() {
+                conditions.push(format!("g.status = ?{}", param_index));
+                bind_values.push(Box::new(status.clone()));
                 param_index += 1;
             }
         }
@@ -164,7 +184,7 @@ impl Database {
 
         let game = conn
             .query_row(
-                "SELECT g.* FROM games g WHERE g.rom_path = ?1",
+                &format!("SELECT {} FROM games g WHERE g.rom_path = ?1", GAME_COLUMNS),
                 rusqlite::params![rom_path],
                 row_to_game,
             )
@@ -184,7 +204,7 @@ impl Database {
 
         let game = conn
             .query_row(
-                "SELECT g.* FROM games g WHERE g.id = ?1",
+                &format!("SELECT {} FROM games g WHERE g.id = ?1", GAME_COLUMNS),
                 rusqlite::params![id],
                 row_to_game,
             )
@@ -336,5 +356,54 @@ mod tests {
             game.is_none(),
             "Should return None for a nonexistent game ID"
         );
+    }
+
+    #[test]
+    fn test_get_games_filter_status() {
+        let db = Database::new_in_memory().unwrap();
+        let mario_id = db.insert_game(&make_rom("mario", "nes")).unwrap();
+        let zelda_id = db.insert_game(&make_rom("zelda", "nes")).unwrap();
+        let sonic_id = db.insert_game(&make_rom("sonic", "genesis")).unwrap();
+
+        // Explicitly set mario to "backlog", zelda to "playing", sonic to "completed".
+        // Default status is NULL (unset), so we must explicitly set "backlog" too.
+        db.set_game_status(mario_id, "backlog").unwrap();
+        db.set_game_status(zelda_id, "playing").unwrap();
+        db.set_game_status(sonic_id, "completed").unwrap();
+
+        // Filter by "playing" — should return only zelda.
+        let params = GetGamesParams {
+            status: Some("playing".to_string()),
+            ..Default::default()
+        };
+        let games = db.get_games(&params).unwrap();
+        assert_eq!(games.len(), 1, "Should return exactly 1 game with status 'playing'");
+        assert_eq!(games[0].title, "zelda");
+
+        // Filter by "backlog" — should return only mario (explicitly set).
+        let params = GetGamesParams {
+            status: Some("backlog".to_string()),
+            ..Default::default()
+        };
+        let games = db.get_games(&params).unwrap();
+        assert_eq!(games.len(), 1, "Should return exactly 1 game with status 'backlog'");
+        assert_eq!(games[0].title, "mario");
+
+        // Filter by "completed" — should return only sonic.
+        let params = GetGamesParams {
+            status: Some("completed".to_string()),
+            ..Default::default()
+        };
+        let games = db.get_games(&params).unwrap();
+        assert_eq!(games.len(), 1, "Should return exactly 1 game with status 'completed'");
+        assert_eq!(games[0].title, "sonic");
+
+        // Filter by "dropped" — should return none.
+        let params = GetGamesParams {
+            status: Some("dropped".to_string()),
+            ..Default::default()
+        };
+        let games = db.get_games(&params).unwrap();
+        assert!(games.is_empty(), "No games should have status 'dropped'");
     }
 }

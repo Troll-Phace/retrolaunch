@@ -65,6 +65,9 @@ pub struct Game {
     pub last_played_at: Option<String>,
     pub currently_playing: bool,
     pub is_favorite: bool,
+    /// Completion status: "backlog", "playing", "completed", or "dropped".
+    /// Empty string means the user has never explicitly set a status.
+    pub status: String,
     pub date_added: String,
     pub metadata_source: Option<String>,
     pub metadata_fetched_at: Option<String>,
@@ -98,6 +101,7 @@ pub struct GetGamesParams {
     pub system_id: Option<String>,
     pub search: Option<String>,
     pub genre: Option<String>,
+    pub status: Option<String>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
     pub limit: Option<u32>,

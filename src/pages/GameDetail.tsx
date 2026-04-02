@@ -17,11 +17,12 @@ import { BlurhashPlaceholder } from "@/components/BlurhashPlaceholder";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { useDynamicColor } from "@/hooks/useDynamicColor";
-import { getGameDetail, getPlayStats, launchGame, toggleFavorite, revealInFileManager, fetchMetadata } from "@/services/api";
+import { getGameDetail, getPlayStats, launchGame, toggleFavorite, revealInFileManager, fetchMetadata, setGameStatus } from "@/services/api";
 import { useAppStore } from "@/store";
 import { classifyError } from "@/utils/errorClassifier";
 import type { ClassifiedError } from "@/utils/errorClassifier";
-import type { Game, GameDetailResponse, PlayStats, Screenshot } from "@/types";
+import type { Game, GameDetailResponse, GameStatus, PlayStats, Screenshot } from "@/types";
+import { STATUS_CONFIG, STATUSES } from "@/constants/gameStatus";
 
 // ---------------------------------------------------------------------------
 // Inline SVG icons
@@ -345,6 +346,9 @@ export function GameDetail() {
 
   // UI state
   const [isFavorite, setIsFavorite] = useState(false);
+  const [status, setStatus] = useState<GameStatus | ''>('');
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<ClassifiedError | null>(null);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -364,10 +368,25 @@ export function GameDetail() {
     return convertFileSrc(game.cover_path);
   }, [game?.cover_path]);
 
-  // Sync favorite state from game data
+  // Sync favorite + status state from game data
   useEffect(() => {
-    if (game) setIsFavorite(game.is_favorite);
+    if (game) {
+      setIsFavorite(game.is_favorite);
+      setStatus(game.status);
+    }
   }, [game]);
+
+  // Close status dropdown on outside click
+  useEffect(() => {
+    if (!statusDropdownOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setStatusDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [statusDropdownOpen]);
 
   // Fetch data
   useEffect(() => {
@@ -444,6 +463,22 @@ export function GameDetail() {
       addToast({ type: "error", message: "Failed to update favorite status." });
     }
   }, [game, isFavorite, addToast]);
+
+  const handleSetStatus = async (newStatus: GameStatus) => {
+    if (!game || newStatus === status) {
+      setStatusDropdownOpen(false);
+      return;
+    }
+    const prev = status;
+    setStatus(newStatus);
+    setStatusDropdownOpen(false);
+    try {
+      await setGameStatus(game.id, newStatus);
+    } catch {
+      setStatus(prev);
+      addToast({ type: 'error', message: 'Failed to update status.' });
+    }
+  };
 
   const revealLabel = navigator.platform.startsWith("Mac")
     ? "Reveal in Finder"
@@ -715,6 +750,13 @@ export function GameDetail() {
               <Badge key={g} label={g} variant="genre" />
             ))}
             {game.region && <Badge label={game.region} variant="region" />}
+            {status !== '' && (
+              <Badge
+                label={STATUS_CONFIG[status].label}
+                variant="status"
+                color={STATUS_CONFIG[status].color}
+              />
+            )}
           </div>
 
           {/* Action buttons */}
@@ -738,6 +780,93 @@ export function GameDetail() {
               <HeartIcon filled={isFavorite} />
               {isFavorite ? "Favorited" : "Favorite"}
             </Button>
+
+            {/* Status dropdown */}
+            <div className="relative" ref={statusDropdownRef}>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setStatusDropdownOpen((prev) => !prev)}
+                aria-haspopup="listbox"
+                aria-expanded={statusDropdownOpen}
+                className="gap-2"
+              >
+                {status !== '' && (
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: STATUS_CONFIG[status].color }}
+                  />
+                )}
+                {status !== '' ? STATUS_CONFIG[status].label : 'Set Status'}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className={`h-4 w-4 transition-transform duration-200 ${statusDropdownOpen ? "rotate-180" : ""}`}
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </Button>
+
+              <AnimatePresence>
+                {statusDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    role="listbox"
+                    aria-label="Game completion status"
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setStatusDropdownOpen(false);
+                      }
+                    }}
+                    className="absolute top-full left-0 z-50 mt-2 min-w-[180px] overflow-hidden rounded-xl border border-ghost bg-elevated/95 p-1 shadow-xl backdrop-blur-md"
+                  >
+                    {STATUSES.map((s) => (
+                      <motion.button
+                        key={s}
+                        type="button"
+                        role="option"
+                        aria-selected={s === status}
+                        onClick={() => handleSetStatus(s)}
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                          s === status ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
+                        }`}
+                      >
+                        <span
+                          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: STATUS_CONFIG[s].color }}
+                        />
+                        <span className="flex-1 font-medium">{STATUS_CONFIG[s].label}</span>
+                        {s === status && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="h-4 w-4 text-accent"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </motion.button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <Button
               variant="secondary"
               size="md"

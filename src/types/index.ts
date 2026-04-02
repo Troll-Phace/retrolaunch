@@ -55,6 +55,9 @@ export interface GameDetailResponse {
   screenshots: Screenshot[];
 }
 
+/** Game completion status values. */
+export type GameStatus = 'backlog' | 'playing' | 'completed' | 'dropped';
+
 /** Full game record matching the `games` SQLite table. */
 export interface Game {
   id: number;
@@ -79,6 +82,8 @@ export interface Game {
   last_played_at: string | null;
   currently_playing: boolean;
   is_favorite: boolean;
+  /** Empty string means never explicitly set by user. */
+  status: GameStatus | '';
   date_added: string;
   metadata_source: string | null;
   metadata_fetched_at: string | null;
@@ -115,6 +120,7 @@ export interface GetGamesParams {
   genre?: string | null;
   sort_by?: string | null;
   sort_order?: string | null;
+  status?: GameStatus | null;
   limit?: number | null;
   offset?: number | null;
 }

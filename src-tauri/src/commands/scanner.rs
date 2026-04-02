@@ -138,6 +138,17 @@ pub async fn toggle_favorite(
     db.toggle_favorite(game_id).map_err(|e| e.to_string())
 }
 
+/// Sets the completion status of a game.
+#[tauri::command]
+pub async fn set_game_status(
+    game_id: i64,
+    status: String,
+    db: State<'_, Arc<Database>>,
+) -> Result<String, String> {
+    db.set_game_status(game_id, &status)
+        .map_err(|e| e.to_string())
+}
+
 /// Deletes games whose ROM path does not belong to any watched directory.
 ///
 /// Returns the number of orphaned games that were removed.

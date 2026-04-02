@@ -54,6 +54,7 @@ function createMockGame(overrides: Partial<Game> = {}): Game {
     last_played_at: null,
     currently_playing: false,
     is_favorite: false,
+    status: '',
     date_added: '2024-01-01T00:00:00Z',
     metadata_source: null,
     metadata_fetched_at: null,

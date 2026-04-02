@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import type { Game, GameSortField, SortOrder, System } from "@/types";
+import type { Game, GameSortField, GameStatus, SortOrder, System } from "@/types";
 import { getGames, getSystems, launchGame, scanDirectories } from "@/services/api";
 import { useAppStore } from "@/store";
 import { useDebounce } from "@/hooks/useDebounce";
 import { SystemThemeHeader } from "@/components/SystemThemeHeader";
 import { GenreFilterBar } from "@/components/GenreFilterBar";
+import { StatusFilterBar } from "@/components/StatusFilterBar";
 import { SortDropdown } from "@/components/SortDropdown";
 import { ViewToggle } from "@/components/ViewToggle";
 import { CardSizeSlider } from "@/components/CardSizeSlider";
@@ -40,6 +41,7 @@ export function SystemGrid() {
 
   // ---- Local filter state -------------------------------------------------
   const [genre, setGenre] = useState("All");
+  const [statusFilter, setStatusFilter] = useState<GameStatus | "All">("All");
 
   // ---- Sort state (initialised from Zustand for persistence) ---------------
   const activeFilters = useAppStore((s) => s.activeFilters);
@@ -83,6 +85,7 @@ export function SystemGrid() {
     getGames({
       system_id: id,
       genre: genre === "All" ? null : genre,
+      status: statusFilter === "All" ? null : statusFilter,
       sort_by: sortBy,
       sort_order: sortOrder,
       search: debouncedSearch || null,
@@ -97,7 +100,7 @@ export function SystemGrid() {
         setError(message);
         setLoading(false);
       });
-  }, [id, genre, sortBy, sortOrder, debouncedSearch, dataVersion]);
+  }, [id, genre, statusFilter, sortBy, sortOrder, debouncedSearch, dataVersion]);
 
   // ---- Sort change handler (persists to Zustand) --------------------------
   const handleSortChange = useCallback(
@@ -119,13 +122,14 @@ export function SystemGrid() {
 
   // ---- Whether any filters are currently applied ---------------------------
   const hasFilters = useMemo(
-    () => genre !== "All" || Boolean(debouncedSearch),
-    [genre, debouncedSearch],
+    () => genre !== "All" || statusFilter !== "All" || Boolean(debouncedSearch),
+    [genre, statusFilter, debouncedSearch],
   );
 
   // ---- Clear all filters --------------------------------------------------
   const handleClearFilters = useCallback(() => {
     setGenre("All");
+    setStatusFilter("All");
     useAppStore.getState().setSearchQuery("");
   }, []);
 
@@ -162,8 +166,9 @@ export function SystemGrid() {
 
       {/* Toolbar row: genre filters, sort, view toggle */}
       <div className="flex items-center gap-3 px-6 py-3">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-2">
           <GenreFilterBar activeGenre={genre} onGenreChange={setGenre} />
+          <StatusFilterBar activeStatus={statusFilter} onStatusChange={setStatusFilter} />
         </div>
         <SortDropdown
           sortBy={sortBy}

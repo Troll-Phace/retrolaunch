@@ -39,6 +39,41 @@ impl Database {
         conn.execute_batch(include_str!("schema.sql"))?;
         conn.execute_batch(include_str!("seed_systems.sql"))?;
 
+        // Migration: add `status` column if it doesn't exist (for databases
+        // created before this column was added to schema.sql).
+        {
+            let has_status = {
+                let mut stmt = conn.prepare("PRAGMA table_info(games)")?;
+                let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
+                let mut found = false;
+                for col in columns {
+                    if col.as_deref() == Ok("status") {
+                        found = true;
+                        break;
+                    }
+                }
+                found
+            };
+            if !has_status {
+                conn.execute_batch(
+                    "ALTER TABLE games ADD COLUMN status TEXT NOT NULL DEFAULT '';",
+                )?;
+            } else {
+                // Migration v2: the initial migration used DEFAULT 'backlog' which
+                // set every existing game to 'backlog'. We now use empty string to
+                // mean "never set by user". Convert leftover defaults.
+                conn.execute(
+                    "UPDATE games SET status = '' WHERE status = 'backlog'",
+                    [],
+                )?;
+            }
+        }
+        // Create the status index after the column is guaranteed to exist
+        // (either from schema.sql for new DBs or from the migration above).
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);",
+        )?;
+
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -86,8 +121,8 @@ impl Database {
 
         conn.execute(
             "INSERT OR IGNORE INTO games (title, system_id, rom_path, rom_hash_crc32, \
-             rom_hash_sha1, file_size_bytes, file_last_modified, date_added) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))",
+             rom_hash_sha1, file_size_bytes, file_last_modified, status, date_added) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', datetime('now'))",
             rusqlite::params![
                 title,
                 rom.system_id,
@@ -832,6 +867,41 @@ impl Database {
         Ok(new_value)
     }
 
+    /// Sets the completion status of a game.
+    ///
+    /// Valid statuses: "backlog", "playing", "completed", "dropped".
+    /// Returns the new status string, or an error if the status is invalid
+    /// or the game does not exist.
+    pub fn set_game_status(&self, game_id: i64, status: &str) -> Result<String> {
+        let valid = ["backlog", "playing", "completed", "dropped"];
+        if !valid.contains(&status) {
+            return Err(anyhow::anyhow!(
+                "Invalid status: {}. Must be one of: backlog, playing, completed, dropped",
+                status
+            ));
+        }
+
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Database mutex poisoned: {}", e))?;
+
+        conn.execute(
+            "UPDATE games SET status = ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![status, game_id],
+        )?;
+
+        let new_status: String = conn
+            .query_row(
+                "SELECT status FROM games WHERE id = ?1",
+                rusqlite::params![game_id],
+                |row| row.get(0),
+            )
+            .with_context(|| format!("Game with id {} not found after status update", game_id))?;
+
+        Ok(new_status)
+    }
+
     /// Returns games that have no metadata source set (not yet fetched or unmatched).
     ///
     /// Optionally limits the number of results.
@@ -843,11 +913,15 @@ impl Database {
 
         let sql = if let Some(limit) = limit {
             format!(
-                "SELECT g.* FROM games g WHERE g.metadata_source IS NULL LIMIT {}",
+                "SELECT {} FROM games g WHERE g.metadata_source IS NULL LIMIT {}",
+                crate::db::queries::GAME_COLUMNS,
                 limit
             )
         } else {
-            "SELECT g.* FROM games g WHERE g.metadata_source IS NULL".to_string()
+            format!(
+                "SELECT {} FROM games g WHERE g.metadata_source IS NULL",
+                crate::db::queries::GAME_COLUMNS
+            )
         };
 
         let mut stmt = conn.prepare(&sql)?;
@@ -2156,5 +2230,78 @@ mod tests {
         let unmatched = db.get_games_without_nointro().unwrap();
         assert_eq!(unmatched.len(), 1);
         assert_eq!(unmatched[0].rom_path, "/roms/game_b.nes");
+    }
+
+    // ── Game completion status tests ──────────────────────────────────
+
+    #[test]
+    fn test_set_game_status() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("status_game", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        // Default status should be empty string (never explicitly set).
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(game.status, "", "Default status should be empty (unset)");
+
+        // Set to "playing".
+        let new_status = db.set_game_status(game_id, "playing").unwrap();
+        assert_eq!(new_status, "playing");
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(game.status, "playing");
+
+        // Set to "completed".
+        let new_status = db.set_game_status(game_id, "completed").unwrap();
+        assert_eq!(new_status, "completed");
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(game.status, "completed");
+
+        // Set to "dropped".
+        let new_status = db.set_game_status(game_id, "dropped").unwrap();
+        assert_eq!(new_status, "dropped");
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(game.status, "dropped");
+    }
+
+    #[test]
+    fn test_set_game_status_invalid() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("invalid_status_game", "nes");
+        let game_id = db.insert_game(&rom).unwrap();
+
+        let result = db.set_game_status(game_id, "invalid_value");
+        assert!(
+            result.is_err(),
+            "Setting an invalid status should return an error"
+        );
+
+        // Verify the status was not changed from its default.
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(game.status, "", "Status should remain empty after invalid set attempt");
+    }
+
+    #[test]
+    fn test_set_game_status_nonexistent_game() {
+        let db = Database::new_in_memory().unwrap();
+
+        let result = db.set_game_status(99999, "playing");
+        assert!(
+            result.is_err(),
+            "Setting status on a nonexistent game should return an error"
+        );
+    }
+
+    #[test]
+    fn test_default_status_is_empty() {
+        let db = Database::new_in_memory().unwrap();
+        let rom = make_test_rom("default_status_game", "snes");
+        let game_id = db.insert_game(&rom).unwrap();
+        assert!(game_id > 0);
+
+        let game = db.get_game_by_id(game_id).unwrap().unwrap();
+        assert_eq!(game.status, "", "Newly inserted game should have empty status (unset)");
     }
 }

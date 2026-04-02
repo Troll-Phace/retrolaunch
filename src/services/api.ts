@@ -17,6 +17,7 @@ import type {
   FetchMetadataParams,
   Game,
   GameDetailResponse,
+  GameStatus,
   GetGamesParams,
   PlayStats,
   ScanComplete,
@@ -184,6 +185,11 @@ export async function getGameDetail(gameId: number): Promise<GameDetailResponse>
 /** Toggles the favorite state of a game. Returns the new favorite state. */
 export async function toggleFavorite(gameId: number): Promise<boolean> {
   return invoke<boolean>('toggle_favorite', { gameId });
+}
+
+/** Sets the completion status of a game. Returns the new status string. */
+export async function setGameStatus(gameId: number, status: GameStatus): Promise<string> {
+  return invoke<string>('set_game_status', { gameId, status });
 }
 
 // ---------------------------------------------------------------------------

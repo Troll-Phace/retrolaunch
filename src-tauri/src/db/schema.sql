@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS games (
     last_played_at TEXT,
     currently_playing INTEGER DEFAULT 0,
     is_favorite INTEGER DEFAULT 0,
+    status TEXT NOT NULL DEFAULT '',
     date_added TEXT NOT NULL,
     metadata_source TEXT,
     metadata_fetched_at TEXT,

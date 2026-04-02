@@ -123,6 +123,7 @@ pub fn run() {
             commands::scanner::get_watched_directories,
             commands::scanner::get_game_detail,
             commands::scanner::toggle_favorite,
+            commands::scanner::set_game_status,
             commands::scanner::cleanup_orphaned_games,
             commands::launcher::get_emulator_configs,
             commands::launcher::set_emulator_config,
