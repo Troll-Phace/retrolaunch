@@ -262,15 +262,15 @@ export function EmulatorConfigPanel({
       {/* System list */}
       <motion.div
         className="mt-6 space-y-3"
-        variants={!hasAnimatedRef.current ? staggerContainer : undefined}
-        initial={!hasAnimatedRef.current ? "hidden" : false}
+        variants={staggerContainer}
+        initial={hasAnimatedRef.current ? false : "hidden"}
         animate="show"
         onAnimationComplete={() => { hasAnimatedRef.current = true; }}
       >
         {systems.map((system) => (
           <motion.div
             key={system.id}
-            variants={!hasAnimatedRef.current ? (shouldReduceMotion ? reducedStaggerItem : staggerItem) : undefined}
+            variants={shouldReduceMotion ? reducedStaggerItem : staggerItem}
           >
             <SystemRow
               system={system}
